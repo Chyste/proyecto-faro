@@ -29,6 +29,13 @@ def test_stable_is_zero_and_living_alone_not_penalised():
     assert r.level == 0 and set(r.dimension_levels.values()) == {0}
 
 
+def test_partial_call_with_one_informed_dimension_is_unassessed():
+    # Elena day 9: interrupted call, only "no necesita ayuda" answered -> not enough to call it stable.
+    r = evaluate([call(1, animo_reportado=(None, "no_comprendido"), necesita_ayuda_inmediata=False)])
+    assert r.level is None
+    assert r.reasons[0]["rule_code"] == "C0_SIN_EVALUACION"
+
+
 def test_single_dimension_signal_is_level_1():
     assert evaluate([call(1, soledad_percibida="a_veces")]).level == 1
 

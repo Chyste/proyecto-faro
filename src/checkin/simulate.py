@@ -50,11 +50,23 @@ def trace(conn: sqlite3.Connection, cid: int, log: list[dict]) -> str:
     out.append(render_table(["Evento", "Regla", "Origen", "Cita"],
                             [[h.event, h.rule_code, h.source, h.evidence[0][1]] for h in hits])
                if hits else "   sin eventos urgentes")
-    out.append("3) Observaciones registradas (modo reproducción: sustituye al extractor LLM)")
+    jev = steps.get("jev")
     obs = conn.execute("SELECT * FROM observation WHERE conversation_id=? ORDER BY id", (cid,)).fetchall()
-    out.append(render_table(["Indicador", "Valor/estado", "Fuente", "Cita"],
-                            [[o["indicator_code"], _value(o), o["source"], o["evidence_quote"] or ""] for o in obs])
-               if obs else "   sin observaciones de salud")
+    if jev:
+        out.append(f"3) Extracción Jev ({jev['tokens']} tokens, {jev['latency_ms']} ms; probabilidad/confianza por campo)")
+        det = jev["details"]
+        out.append(render_table(["Indicador", "Valor/estado", "Fuente", "Jev", "Cita"],
+                                [[o["indicator_code"], _value(o), o["source"], det.get(o["indicator_code"], ""),
+                                  o["evidence_quote"] or ""] for o in obs]) if obs else "   sin observaciones de salud")
+        if jev["flags"]:
+            out.append("   Red de seguridad IA: " + ", ".join(f"{e} p={p:.2f}" for e, p in jev["flags"]))
+    else:
+        fb = steps["replay"].get("fallback")
+        out.append("3) Observaciones registradas (" + ("FALLBACK a reproducción: Jev no disponible"
+                                                       if fb else "modo reproducción: sustituye al extractor LLM") + ")")
+        out.append(render_table(["Indicador", "Valor/estado", "Fuente", "Cita"],
+                                [[o["indicator_code"], _value(o), o["source"], o["evidence_quote"] or ""] for o in obs])
+                   if obs else "   sin observaciones de salud")
     a = steps["assessment"]
     out.append("4) Evaluación por dimensión")
     rows = []
@@ -113,11 +125,12 @@ def bandeja(conn) -> str:
     return render_table(["Persona", "Nivel actual", "Última evaluación", "Fecha", "Alertas abiertas", "Alerta principal"], out)
 
 
-def run_simulation(conn: sqlite3.Connection, person: str | None = None, day: int | None = None) -> str:
-    """Process all conversations; return a trace (selected person/day) or compact summary, plus final reports."""
-    logs = process_all(conn)
-    convs = conn.execute("SELECT c.id, p.preferred_name n FROM conversation c JOIN person p ON p.id=c.person_id"
-                         " ORDER BY p.id, c.started_at, c.id").fetchall()
+def run_simulation(conn: sqlite3.Connection, person: str | None = None, day: int | None = None,
+                   mode: str = "reproduccion", client=None, limit: int | None = None) -> str:
+    """Process conversations; return a trace (selected person/day) or compact summary, plus final reports."""
+    logs = process_all(conn, mode, client, limit)
+    convs = [c for c in conn.execute("SELECT c.id, p.preferred_name n FROM conversation c JOIN person p ON p.id=c.person_id"
+                                     " ORDER BY p.id, c.started_at, c.id").fetchall() if c["id"] in logs]
     per_person: dict[str, list[int]] = {}
     for c in convs:
         per_person.setdefault(c["n"], []).append(c["id"])
@@ -146,4 +159,7 @@ def run_simulation(conn: sqlite3.Connection, person: str | None = None, day: int
     out.append("\nMatriz de confusión (filas: esperado, columnas: obtenido)\n" + render_table(
         ["Esperado \\ Obtenido", "sin evaluar", "0", "1", "2", "3"], matrix))
     out.append("\nBandeja OAM (personas por nivel actual y alertas abiertas)\n" + bandeja(conn))
+    if mode == "jev":
+        from .evaluate import evaluation_report
+        out.append("\n" + evaluation_report(conn))
     return "\n".join(out)

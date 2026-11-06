@@ -12,6 +12,8 @@ from src.db.catalog import INDICATORS
 RULE_VERSION = "demo-v1"
 WINDOW_DAYS = 5
 PERSISTENCE_MIN = 3
+# Level 0 needs "información suficiente": informed answers in at least this many dimensions (demo rule).
+MIN_INFORMED_DIMENSIONS = 2
 
 DIM_OF = {i.code: i.dimension_code for i in INDICATORS}
 DIMENSIONS = ("aislamiento", "funcional", "medicacion", "emocional_cognitiva", "seguridad")
@@ -155,7 +157,7 @@ def evaluate(calls: list[Call], open_urgent: bool = False) -> AssessmentResult:
     elif len(flagged) == 1:
         level, rc, ids = 1, "R1_SENAL_AISLADA", [i for r in reasons for i in r["observation_ids"]]
         txt = f"Una sola dimensión con señal aislada: {DIM_NAME[flagged[0]]}."
-    elif _vals(cur):
+    elif len({DIM_OF[code] for code in _vals(cur)}) >= MIN_INFORMED_DIMENSIONS:
         level, rc, ids, txt = 0, "R0_ESTABLE", [], "Información suficiente, sin señales activas y con apoyo disponible."
     else:
         level, rc, ids = None, "C0_SIN_EVALUACION", []

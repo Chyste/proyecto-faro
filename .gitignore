@@ -19,3 +19,8 @@ outputs/**
 
 # Local agent tooling
 .atl/
+
+# Secrets
+.env
+.env.*
+!.env.example

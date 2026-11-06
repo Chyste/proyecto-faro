@@ -5,6 +5,7 @@ import json
 import sqlite3
 from datetime import date
 
+from .extractor_jev import JevError, extract_conversation, record_fallback
 from .replay import VALID_STATUS, load_replay_observations
 from .rules import RULE_VERSION, Call, Obs, evaluate
 from .urgent import run_urgent
@@ -46,10 +47,28 @@ def _upsert_alert(conn, person_id, level, origin, rule_code, explanation, create
     return {"action": action, "alert_id": aid, "level": level, "origin": origin, "rule_code": rule_code}
 
 
-def process_conversation(conn: sqlite3.Connection, conversation_id: int, mode: str = "reproduccion") -> list[dict]:
-    """Process one conversation (idempotent); returns a step log."""
-    if mode != "reproduccion":
-        raise NotImplementedError("Only 'reproduccion' mode is available (live extraction is not implemented).")
+def _extract_step(conn, conversation_id, mode, client) -> dict:
+    """Step 3: replay (annotated values) or Jev extraction; Jev failure falls back to replay for this conversation."""
+    if mode == "reproduccion":
+        return {"step": "replay", "observation_ids": load_replay_observations(conn, conversation_id)}
+    try:
+        r = extract_conversation(conn, conversation_id, client)
+    except JevError as e:
+        record_fallback(conn, conversation_id, f"{type(e).__name__}: {e}")
+        return {"step": "replay", "fallback": True, "error": str(e),
+                "observation_ids": load_replay_observations(conn, conversation_id)}
+    return {"step": "jev", "observation_ids": r["observation_ids"], "details": r["details"], "flags": r["flags"],
+            "tokens": r["tokens"], "latency_ms": r["latency_ms"], "reused": r["reused"],
+            "safety_alert_id": r.get("safety_alert_id")}
+
+
+def process_conversation(conn: sqlite3.Connection, conversation_id: int, mode: str = "reproduccion",
+                         client=None) -> list[dict]:
+    """Process one conversation (idempotent); returns a step log. mode: 'reproduccion' | 'jev'."""
+    if mode not in ("reproduccion", "jev"):
+        raise ValueError(f"Unknown mode: {mode}")
+    if mode == "jev" and client is None:
+        raise ValueError("mode='jev' requires a client")
     conv = conn.execute("SELECT * FROM conversation WHERE id=?", (conversation_id,)).fetchone()
     pid, when = conv["person_id"], conv["started_at"]
     log: list[dict] = []
@@ -72,7 +91,7 @@ def process_conversation(conn: sqlite3.Connection, conversation_id: int, mode: s
             "No fue posible contactar a la persona en el intento más reciente. Revisar horario preferido y teléfono; "
             "no es una señal de salud.", when, []))
     else:
-        log.append({"step": "replay", "observation_ids": load_replay_observations(conn, conversation_id)})
+        log.append(_extract_step(conn, conversation_id, mode, client))
         open_urgent = conn.execute("SELECT 1 FROM alert WHERE person_id=? AND level=3 AND status!='cerrada'"
                                    " AND created_at<=?", (pid, when)).fetchone() is not None
         result = evaluate(_calls_until(conn, conv), open_urgent=open_urgent)
@@ -94,7 +113,10 @@ def process_conversation(conn: sqlite3.Connection, conversation_id: int, mode: s
     return log
 
 
-def process_all(conn: sqlite3.Connection, mode: str = "reproduccion") -> dict[int, list[dict]]:
-    """Process every conversation chronologically across persons; returns {conversation_id: step log}."""
+def process_all(conn: sqlite3.Connection, mode: str = "reproduccion", client=None,
+                limit: int | None = None) -> dict[int, list[dict]]:
+    """Process conversations chronologically across persons (first `limit` if given); returns {id: step log}."""
     ids = [r[0] for r in conn.execute("SELECT id FROM conversation ORDER BY started_at, person_id, id")]
-    return {cid: process_conversation(conn, cid, mode) for cid in ids}
+    if limit is not None:
+        ids = ids[:limit]
+    return {cid: process_conversation(conn, cid, mode, client) for cid in ids}
