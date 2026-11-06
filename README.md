@@ -66,6 +66,20 @@ uv run python -m src.db.export --archive outputs/faro_datos_sinteticos.zip
 
 Los archivos se crean en `data/synthetic/`: `faro_sintetico.db` contiene el modelo completo y `conversaciones.db` contiene una tabla `conversaciones(id, conversacion)`. Incluyen perfiles, catálogo, parámetros y anotaciones esperadas para 14 días. La [guía del paquete](data/synthetic/README.md) explica cada archivo. Esta generación es independiente de la base operativa existente.
 
+## Panel de FARO 100% real (API + SQLite + voz)
+
+FARO ayuda a los equipos municipales a reconocer cambios en la vida cotidiana de las personas mayores y coordinar apoyo oportuno. Cada señal conserva su evidencia, cada caso tiene un responsable y cada acción queda en seguimiento. Las llamadas son automáticas: el operador revisa transcripciones y decide (derivar, avisar a contacto autorizado, solicitar llamada humana, ajustar frecuencia, cerrar con decisión).
+
+```bash
+scripts/seed_demo.sh          # reconstruye la BD y procesa las 70 conversaciones (reproducción, sin red); --jev usa TypeSafe
+uv run uvicorn src.api.app:app --port 8000
+cd dashboard && npm install && npm run dev      # http://localhost:5173
+```
+
+- Todo el panel lee de la API: `/api/bandeja`, `/api/personas/{id}` (`?incluir_salud=1` para medicamentos), `/api/alertas`, `/api/llamadas`, `POST /api/decisiones`, `POST /api/personas/{id}/asignar|frecuencia`, y `GET /api/eventos` (SSE: `persona_actualizada`, `alerta_creada`, `decision_registrada`). «Restablecer demo» llama a `POST /api/demo/reset` (re-siembra en modo reproducción). Si tenías una BD anterior, vuelve a correr `scripts/seed_demo.sh` (el esquema cambió).
+- Voz (Fish Audio), claves solo en el servidor (`.env`, cargado en tiempo de ejecución): `FISH_API_KEY` (obligatoria para voz), `FISH_VOICE_ID` (opcional: `reference_id` de una voz; si falta, Fish usa su voz por defecto). `GET /api/voz/estado`, `POST /api/voz/tts {texto}` (modelo `drama-3`, MP3, con la dirección «[tono cálido, pausado y cercano]») y `POST /api/voz/stt` (multipart, `transcribe-1-pro`, `language=es`). Sin clave, el navegador usa `speechSynthesis` / Web Speech y, si no existen, texto.
+- Bienestar y Geográfico siguen siendo «Datos agregados de demostración».
+
 ## Horarios críticos (6 nov 2026)
 
 - **14:45** congelamiento del prototipo + checklist ético completo (requisito de admisibilidad).

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import Header from '../components/layout/Header';
+import DemoPill from '../components/ui/DemoPill';
 import { getDatosDominio } from '../data/syntheticData';
 import { Activity } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export default function BienestarPage() {
         subtitle="Evaluación de los 6 dominios de riesgo sociosanitario"
       />
       <div className="p-6 space-y-6">
+        <DemoPill agregados />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {dominios.map((d) => (
             <div key={d.dominio} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-3">

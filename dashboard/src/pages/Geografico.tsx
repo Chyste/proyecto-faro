@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import Header from '../components/layout/Header';
+import DemoPill from '../components/ui/DemoPill';
 import { getDatosComunales } from '../data/syntheticData';
 import { MapPin, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export default function GeograficoPage() {
         subtitle="Cobertura comarcal y alertas por comuna"
       />
       <div className="p-6 space-y-6">
+        <DemoPill agregados />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {comunales.map((c) => (
             <div key={c.comuna} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">

@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getPersonas } from '../data/syntheticData';
-import type { Persona } from '../data/types';
 import LevelBadge, { type LevelKey } from '../components/ui/LevelBadge';
 import DemoPill from '../components/ui/DemoPill';
+import ApiBoundary from '../components/ui/ApiBoundary';
 import { useActions } from '../components/actions/ActionModals';
-import { useFaro } from '../state/FaroStore';
+import { DerivacionChip } from '../components/actions/Decisiones';
 import { useCountUp } from '../lib/motion';
-import { diasEntre, fechaCorta, fechaHoy, fechaLarga, nivelDe, primerNombre } from '../lib/faro';
+import { useApi } from '../lib/useApi';
+import { CURRENT_USER, diasEntre, fechaCorta, fechaLarga, getBandeja, primerNombre, type BandejaRow } from '../lib/panelApi';
 
 type FilterKey = 'accion' | 'todos' | 'sinResp' | 'sinEval' | 'mis';
 
@@ -19,35 +19,29 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'mis', label: 'Mis personas' },
 ];
 
-const CURRENT_USER = 'Camila';
 const card = 'rounded-[14px] border border-hairline-soft bg-canvas shadow-card';
 
 interface Row {
-  p: Persona;
+  p: BandejaRow;
   level: LevelKey;
   motivo: string;
   responsable: string | null;
   diasSin: number;
 }
 
-function buildRow(p: Persona, hoy: string, resp: string | null): Row {
-  const sinEval = p.fechaUltimoControl < hoy;
-  const lastControl = p.historialControles.at(-1);
-  const lastSenal = [...p.senales].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
-  let motivo = '—';
-  if (sinEval) motivo = `Sin respuesta hoy. Último nivel conocido: ${nivelDe(p)} (${fechaCorta(p.fechaUltimoControl)})`;
-  else if (nivelDe(p) > 0 && lastSenal) motivo = lastSenal.descripcion;
-  else if (lastControl) motivo = lastControl.resumen;
+function buildRow(p: BandejaRow, hoy: string): Row {
+  const level: LevelKey = p.nivel === null ? 'na' : p.nivel;
+  const ul = p.ultima_llamada;
   return {
     p,
-    level: sinEval ? 'na' : nivelDe(p),
-    motivo,
-    responsable: resp ? primerNombre(resp) : null,
-    diasSin: diasEntre(p.fechaUltimoControl, hoy),
+    level,
+    motivo: p.motivo ?? (level === 'na' ? 'Sin evaluación actual: aún no hay una llamada válida.' : '—'),
+    responsable: p.responsable ? primerNombre(p.responsable) : null,
+    diasSin: ul ? diasEntre(ul.fecha, hoy) : 0,
   };
 }
 
-const priority = (r: Row) => (r.level === 'na' ? 2 : r.level) * 10 + (r.level === 'na' ? 5 : 0) + r.diasSin;
+const priority = (r: Row) => (r.level === 'na' ? 2 : r.level) * 10 + (r.level === 'na' ? 5 : 0) + r.diasSin + r.p.alertas_abiertas * 0.1;
 
 function Counter({ n, caption, level, dashed, accent }: { n: number; caption: string; level: LevelKey; dashed?: boolean; accent?: boolean }) {
   const shown = useCountUp(n);
@@ -112,33 +106,36 @@ function Action({ row }: { row: Row }) {
 }
 
 export default function Dashboard() {
-  const [filter, setFilter] = useState<FilterKey>('todos');
-  const personas = useMemo(() => getPersonas(), []);
-  const hoy = useMemo(() => fechaHoy(personas), [personas]);
-  const { state } = useFaro();
-  const rows = useMemo(
-    () => personas.map((p) => buildRow(p, hoy, state.byId[p.id]?.responsable ?? null)).sort((a, b) => priority(b) - priority(a)),
-    [personas, hoy, state],
+  const api = useApi(getBandeja, []);
+  return (
+    <main className="flex flex-col gap-[22px] px-8 pt-8 pb-7">
+      <ApiBoundary state={api}>{(b) => <Hoy personas={b.personas} hoy={b.hoy} />}</ApiBoundary>
+    </main>
   );
+}
+
+function Hoy({ personas, hoy }: { personas: BandejaRow[]; hoy: string }) {
+  const [filter, setFilter] = useState<FilterKey>('todos');
+  const rows = personas.map((p) => buildRow(p, hoy)).sort((a, b) => priority(b) - priority(a));
 
   const count = (l: LevelKey) => rows.filter((r) => r.level === l).length;
   const visible = rows.filter((r) => {
     if (filter === 'accion') return r.level === 3 || r.level === 2 || r.level === 'na';
     if (filter === 'sinResp') return !r.responsable;
     if (filter === 'sinEval') return r.level === 'na';
-    if (filter === 'mis') return r.responsable === CURRENT_USER;
+    if (filter === 'mis') return r.responsable === primerNombre(CURRENT_USER);
     return true;
   });
 
   const cap = (n: number, text: string, zero: string) => (n === 0 ? zero : text);
 
   return (
-    <main className="flex flex-col gap-[22px] px-8 pt-8 pb-7">
+    <>
       <div className="flex items-start gap-4">
         <div className="flex flex-1 flex-col gap-1">
           <h1 className="text-[28px] font-bold leading-tight text-ink">Hoy</h1>
           <p className="text-[14px] text-muted">
-            {fechaLarga(hoy)} · {rows.length} personas en seguimiento · Llamadas automáticas de hoy
+            {fechaLarga(hoy)} · {rows.length} personas en seguimiento · Llamadas automáticas (sin intervención del operador)
           </p>
         </div>
         <DemoPill />
@@ -149,7 +146,7 @@ export default function Dashboard() {
         <Counter n={count(2)} caption={cap(count(2), 'revisar hoy', 'sin personas')} level={2} />
         <Counter n={count(1)} caption="sin personas" level={1} />
         <Counter n={count(0)} caption="sin cambios" level={0} />
-        <Counter n={count('na')} caption="sin llamada válida hoy" level="na" dashed />
+        <Counter n={count('na')} caption="sin llamada válida" level="na" dashed />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -196,16 +193,17 @@ export default function Dashboard() {
             </div>
             <p className="w-[230px] shrink-0 text-[13px] leading-[19px] text-body line-clamp-3">{r.motivo}</p>
             <div className="flex w-[150px] shrink-0 flex-col gap-[3px]">
-              <span className="text-[13px] text-body">{fechaCorta(r.p.fechaUltimoControl)}</span>
+              <span className="text-[13px] text-body">{r.p.ultima_llamada ? fechaCorta(r.p.ultima_llamada.fecha) : '—'}</span>
               <span className="text-[12px] text-muted">
-                {r.diasSin === 0 ? 'Llamada completada' : `Hace ${r.diasSin} ${r.diasSin === 1 ? 'día' : 'días'}`}
+                {!r.p.ultima_llamada ? 'Sin llamadas' : r.p.ultima_llamada.estado === 'completada' || r.p.ultima_llamada.estado === 'parcial' ? (r.diasSin === 0 ? `Llamada ${r.p.ultima_llamada.estado}` : `Hace ${r.diasSin} ${r.diasSin === 1 ? 'día' : 'días'}`) : `Sin respuesta (${r.p.ultima_llamada.estado.replace(/_/g, ' ')})`}
               </span>
             </div>
             <span className={`w-[90px] shrink-0 text-[13px] ${r.responsable ? 'text-body' : 'font-semibold text-ink'}`}>
               {r.responsable ?? 'Sin asignar'}
             </span>
-            <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
               <Action row={r} />
+              {r.p.derivacion && r.p.estado_revision === 'derivado' && <DerivacionChip d={r.p.derivacion} />}
             </div>
             <span className="row-chevron shrink-0 text-muted" aria-hidden>›</span>
           </Link>
@@ -216,6 +214,6 @@ export default function Dashboard() {
         La falta de respuesta no se interpreta como tristeza, abandono de tratamiento ni emergencia: queda visible aquí para seguimiento
         humano. Niveles calculados por reglas explícitas; el sistema orienta, no diagnostica.
       </p>
-    </main>
+    </>
   );
 }

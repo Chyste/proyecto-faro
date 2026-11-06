@@ -24,7 +24,10 @@ from src.checkin.pipeline import _calls_until
 from src.checkin.urgent import detect_urgent_messages, normalize
 from src.checkin.rules import DIM_OF, DIMENSIONS, Call, Obs, evaluate
 from src.db.catalog import INDICATORS, seed_catalog
+from src.api.panel import Bus, build_router
+from src.api.voz import build_router as build_voz
 from src.db.connection import connect, init_db
+from src.db.demo import rebuild
 from src.db.synthetic import seed_synthetic
 
 DIM_NAME = {"aislamiento": "Aislamiento social", "funcional": "Deterioro funcional",
@@ -101,6 +104,7 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
     app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                        allow_methods=["*"], allow_headers=["*"])
     st: dict = {"conn": None, "jev": None, "jev_error": None, "sessions": {}, "n": 0}
+    bus = Bus()
 
     def conn():
         if st["conn"] is None:
@@ -111,6 +115,15 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
                 seed_synthetic(c)
             st["conn"] = c
         return st["conn"]
+
+    def reset_demo() -> int:
+        """Rebuild the DB (synthetic people + replay-processed conversations); live sessions are dropped."""
+        if st["conn"] is not None:
+            st["conn"].close()
+            st["conn"] = None
+        st["sessions"].clear()
+        st["conn"] = rebuild(db_path)
+        return st["conn"].execute("SELECT COUNT(*) FROM conversation").fetchone()[0]
 
     def jev_client():
         if st["jev"] is None and st["jev_error"] is None:
@@ -194,6 +207,8 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
             if a["id"] not in s.seen_alerts:
                 s.seen_alerts.add(a["id"])
                 s.emit("alerta", a)
+                bus.emit("alerta_creada", {"persona_id": s.ds.person["id"], "alerta_id": a["id"], "nivel": a["level"]})
+                bus.emit("persona_actualizada", {"persona_id": s.ds.person["id"]})
 
     def say(s: Live, lines: list[str], ack: str | None = None, off_topic: bool = False) -> None:
         for i, t in enumerate(lines):
@@ -209,6 +224,7 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
             s.finished = True
             publish_state(s)
             s.emit("fin", {"estado": s.ds.status, "urgente": s.ds.urgent, "stats": stats(s)})
+            bus.emit("persona_actualizada", {"persona_id": s.ds.person["id"]})
 
     # ---- endpoints
     @app.get("/api/salud")
@@ -405,6 +421,8 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
         return StreamingResponse(gen(), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
+    app.include_router(build_router(conn, bus, reset_demo))
+    app.include_router(build_voz())
     return app
 
 

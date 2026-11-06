@@ -70,8 +70,14 @@ CREATE TABLE IF NOT EXISTS alert_evidence (alert_id INTEGER NOT NULL REFERENCES 
   observation_id INTEGER NOT NULL REFERENCES observation(id), PRIMARY KEY (alert_id, observation_id));
 CREATE TABLE IF NOT EXISTS intervention (id INTEGER PRIMARY KEY, alert_id INTEGER REFERENCES alert(id),
   person_id INTEGER NOT NULL REFERENCES person(id), user_id INTEGER NOT NULL REFERENCES staff_user(id),
-  action TEXT NOT NULL CHECK (action IN ('llamada','visita','derivacion_cesfam','aviso_contacto','emergencia','sin_accion','falsa_alarma')),
-  notes TEXT, outcome TEXT, next_followup_at TEXT, created_at TEXT NOT NULL);
+  action TEXT NOT NULL CHECK (action IN ('llamada','visita','derivacion_cesfam','aviso_contacto','emergencia','sin_accion','falsa_alarma',
+    'derivacion','solicitar_llamada_humana','ajustar_frecuencia','asignacion','cierre','pausa','actualizar_derivacion')),
+  notes TEXT, outcome TEXT, next_followup_at TEXT, created_at TEXT NOT NULL,
+  destination TEXT, transcript_reviewed INTEGER NOT NULL DEFAULT 0,
+  ref_id INTEGER REFERENCES intervention(id)); -- ref_id: derivation a follow-up status update refers to
+-- Automatic-call plan per person (operators adjust the frequency; calls are never placed by operators).
+CREATE TABLE IF NOT EXISTS contact_plan (person_id INTEGER PRIMARY KEY REFERENCES person(id),
+  frequency TEXT NOT NULL DEFAULT 'diaria' CHECK (frequency IN ('diaria','cada 2 días','semanal')), updated_at TEXT NOT NULL);
 -- Pipeline output: one row per evaluation. level NULL = "sin evaluación actual".
 CREATE TABLE IF NOT EXISTS assessment (id INTEGER PRIMARY KEY, person_id INTEGER NOT NULL REFERENCES person(id),
   evaluated_at TEXT NOT NULL, conversation_id INTEGER REFERENCES conversation(id),

@@ -1,14 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getPersonas } from '../data/syntheticData';
-import type { Persona } from '../data/types';
 import LevelBadge, { type LevelKey } from '../components/ui/LevelBadge';
+import { DerivacionChip } from '../components/actions/Decisiones';
 import DemoPill from '../components/ui/DemoPill';
-import { fechaCorta, fechaHoy, nivelDe, primerNombre } from '../lib/faro';
-import { proximaLlamada, useFaro } from '../state/FaroStore';
+import ApiBoundary from '../components/ui/ApiBoundary';
+import { useApi } from '../lib/useApi';
+import { ESTADO_REVISION_LABEL, fechaCorta, getBandeja, primerNombre, proximaTexto, type BandejaRow } from '../lib/panelApi';
 
 const card = 'rounded-[14px] border border-hairline-soft bg-canvas shadow-card';
-const ESTADO = { pendiente: 'Pendiente', en_revision: 'En revisión', revisado: 'Revisado', derivado: 'Derivado' } as const;
 type SortKey = 'nivel' | 'ultima' | 'nombre';
 const CHIPS: { key: LevelKey | 'todos'; label: string }[] = [
   { key: 'todos', label: 'Todos' },
@@ -20,25 +19,31 @@ const CHIPS: { key: LevelKey | 'todos'; label: string }[] = [
 ];
 
 export default function PersonasPage() {
+  const api = useApi(getBandeja, []);
+  return (
+    <main className="flex flex-col gap-[18px] px-8 pt-8 pb-7">
+      <ApiBoundary state={api}>{(b) => <Lista personas={b.personas} />}</ApiBoundary>
+    </main>
+  );
+}
+
+function Lista({ personas }: { personas: BandejaRow[] }) {
   const navigate = useNavigate();
-  const { state } = useFaro();
-  const personas = useMemo(() => getPersonas(), []);
-  const hoy = useMemo(() => fechaHoy(personas), [personas]);
   const [q, setQ] = useState('');
   const [chip, setChip] = useState<LevelKey | 'todos'>('todos');
   const [resp, setResp] = useState('');
   const [comuna, setComuna] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'nivel', dir: -1 });
 
-  const lvl = (p: Persona): LevelKey => (p.fechaUltimoControl < hoy ? 'na' : nivelDe(p));
-  const respDe = (p: Persona) => state.byId[p.id]?.responsable ?? null;
+  const lvl = (p: BandejaRow): LevelKey => (p.nivel === null ? 'na' : p.nivel);
+  const respDe = (p: BandejaRow) => p.responsable;
   const rank = (l: LevelKey) => (l === 'na' ? 2.5 : l);
 
-  const comunas = [...new Set(personas.map((p) => p.comuna))];
+  const comunas = [...new Set(personas.map((p) => p.comuna ?? '—'))];
   const responsables = [...new Set(personas.map(respDe).filter((r): r is string => !!r))];
 
   const rows = personas
-    .filter((p) => `${p.nombre} ${p.apellido}`.toLowerCase().includes(q.toLowerCase()))
+    .filter((p) => p.nombre.toLowerCase().includes(q.toLowerCase()))
     .filter((p) => chip === 'todos' || lvl(p) === chip)
     .filter((p) => !resp || (resp === '__none' ? !respDe(p) : respDe(p) === resp))
     .filter((p) => !comuna || p.comuna === comuna)
@@ -47,7 +52,7 @@ export default function PersonasPage() {
         sort.key === 'nivel'
           ? rank(lvl(a)) - rank(lvl(b))
           : sort.key === 'ultima'
-            ? a.fechaUltimoControl.localeCompare(b.fechaUltimoControl)
+            ? (a.ultima_llamada?.fecha ?? '').localeCompare(b.ultima_llamada?.fecha ?? '')
             : a.nombre.localeCompare(b.nombre);
       return d * sort.dir;
     });
@@ -71,7 +76,7 @@ export default function PersonasPage() {
   const sel = 'rounded-[10px] border border-hairline bg-canvas px-3 py-2 text-[14px] text-ink';
 
   return (
-    <main className="flex flex-col gap-[18px] px-8 pt-8 pb-7">
+    <>
       <div className="flex items-start gap-4">
         <div className="flex flex-1 flex-col gap-1">
           <h1 className="text-[28px] font-bold leading-tight text-ink">Personas</h1>
@@ -124,7 +129,6 @@ export default function PersonasPage() {
         </div>
         {rows.length === 0 && <p className="px-5 py-8 text-[13px] text-muted">Sin personas para estos filtros.</p>}
         {rows.map((p, i) => {
-          const ps = state.byId[p.id];
           const l = lvl(p);
           return (
             <div
@@ -133,27 +137,27 @@ export default function PersonasPage() {
               className={`flex min-w-[1180px] cursor-pointer items-center gap-4 px-5 py-4 row-link ${i > 0 ? 'border-t border-hairline-soft' : ''}`}
             >
               <Link to={`/personas/${p.id}`} className="w-[150px] shrink-0 text-[15px] font-semibold text-ink hover:underline" onClick={(e) => e.stopPropagation()}>
-                {p.nombre} {p.apellido}
+                {p.nombre}
               </Link>
               <div className="w-[190px] shrink-0">
                 <LevelBadge level={l} />
               </div>
               <span className="w-[50px] shrink-0 text-[13px] text-body">{p.edad}</span>
               <span className="w-[100px] shrink-0 text-[13px] text-body">{p.comuna}</span>
-              <span className="w-[70px] shrink-0 text-[13px] text-muted">—</span>
-              <span className={`w-[90px] shrink-0 text-[13px] ${ps?.responsable ? 'text-body' : 'font-semibold text-ink'}`}>
-                {ps?.responsable ? primerNombre(ps.responsable) : 'Sin asignar'}
+              <span className="w-[70px] shrink-0 text-[13px] text-body">{p.vive_sola === 'si' ? 'Sí' : p.vive_sola === 'no' ? 'No' : '—'}</span>
+              <span className={`w-[90px] shrink-0 text-[13px] ${p.responsable ? 'text-body' : 'font-semibold text-ink'}`}>
+                {p.responsable ? primerNombre(p.responsable) : 'Sin asignar'}
               </span>
-              <span className="w-[130px] shrink-0 text-[13px] text-body">{fechaCorta(p.fechaUltimoControl)}</span>
-              <span className="w-[110px] shrink-0 text-[13px] text-body">{ESTADO[ps?.estadoRevision ?? p.estadoRevision]}</span>
+              <span className="w-[130px] shrink-0 text-[13px] text-body">{p.ultima_llamada ? fechaCorta(p.ultima_llamada.fecha) : '—'}</span>
+              <span className="w-[110px] shrink-0 text-[13px] text-body">{ESTADO_REVISION_LABEL[p.estado_revision]}</span>
               <span className="min-w-0 flex-1 text-[13px] text-body">
-                {l === 3 || l === 2 || l === 'na' ? 'Revisar hoy' : `Próxima llamada automática: ${proximaLlamada(ps?.frecuencia ?? 'diaria')}`}
+                {l === 3 || l === 2 || l === 'na' ? 'Revisar hoy · ' : ''}Próxima llamada automática: {proximaTexto(p.proxima_llamada, p.pausada)}
+                {p.derivacion && p.estado_revision === 'derivado' && <span className="mt-1 block"><DerivacionChip d={p.derivacion} /></span>}
               </span>
             </div>
           );
         })}
       </div>
-      <p className="text-[12px] text-muted">«Vive sola» no está disponible en los datos de demostración.</p>
-    </main>
+    </>
   );
 }

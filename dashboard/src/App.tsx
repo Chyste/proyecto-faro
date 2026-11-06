@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { FaroProvider } from './state/FaroStore';
 import { ActionsProvider } from './components/actions/ActionModals';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
@@ -13,7 +12,6 @@ import EnVivo from './pages/EnVivo';
 
 export default function App() {
   return (
-    <FaroProvider>
     <ActionsProvider>
     <BrowserRouter>
       <Routes>
@@ -32,6 +30,5 @@ export default function App() {
       </Routes>
     </BrowserRouter>
     </ActionsProvider>
-    </FaroProvider>
   );
 }

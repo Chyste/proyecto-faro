@@ -13,10 +13,9 @@ import {
   SidebarRightIcon,
   UserGroupIcon,
 } from '@hugeicons/core-free-icons';
-import { useFaro } from '../../state/FaroStore';
+import { useApi } from '../../lib/useApi';
+import { getAlertas, postResetDemo } from '../../lib/panelApi';
 import { useActions } from '../actions/ActionModals';
-import { getPersonas } from '../../data/syntheticData';
-import { nivelDe } from '../../lib/faro';
 import lockup from '../../assets/faro-lockup.svg';
 import mark from '../../assets/faro-mark.svg';
 
@@ -67,13 +66,12 @@ const ring = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const { pathname } = useLocation();
-  const { state, dispatch } = useFaro();
   const { toast } = useActions();
-
+  const abiertas = useApi(() => getAlertas(), []);
   const alerts = useMemo(() => {
-    const open = getPersonas().filter((p) => nivelDe(p) >= 2 && state.byId[p.id]?.estadoRevision !== 'revisado');
-    return { count: open.length, critical: open.some((p) => nivelDe(p) === 3) };
-  }, [state]);
+    const open = (abiertas.data ?? []).filter((a) => a.estado !== 'cerrada' && a.nivel >= 2);
+    return { count: open.length, critical: open.some((a) => a.nivel === 3) };
+  }, [abiertas.data]);
 
   return (
     <aside
@@ -155,8 +153,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
         <button
           type="button"
           onClick={() => {
-            dispatch({ type: 'reset' });
-            toast('Demo restablecida');
+            postResetDemo().then(() => toast('Demo restablecida')).catch((e: Error) => toast(e.message));
           }}
           title={collapsed ? 'Restablecer demo' : undefined}
           aria-label="Restablecer demo"
