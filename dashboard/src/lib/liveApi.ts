@@ -12,24 +12,25 @@ export interface Observacion {
 }
 export interface Turno {
   indicador: string; valor: Observacion['valor']; estado: string; confianza: number | null;
-  latencia_ms: number; repregunta: boolean; cita: string; fuente: string; fallback_offline?: boolean; aviso?: string | null;
+  latencia_ms: number; repregunta: boolean; fuera_de_tema?: boolean; intencion?: string | null; cita: string; fuente: string; fallback_offline?: boolean; aviso?: string | null;
 }
 export interface Alerta { id: number; level: number; origin: string; rule_code: string; explanation: string; status: string }
 export interface Stats {
   turnos: number; latencia_media_ms: number; confianza_media: number | null;
   campos_reconocidos: number; campos_pendientes: number;
+  latencias_ms?: number[]; campos_no_sabe?: number; fuera_de_tema?: number; campos_no_comprendidos?: number;
 }
 export interface NivelEvent {
   nivel_actual: Nivel | null; niveles_por_dimension: Record<string, number | null>; motivo: string | null;
   observaciones: Observacion[]; stats: Stats;
 }
 export interface RespuestaApi {
-  decir: string[]; terminada: boolean; urgente: boolean; turno: Turno | null; observaciones: Observacion[];
+  decir: string[]; acuse?: string | null; fuera_de_tema?: boolean; intencion?: string | null; terminada: boolean; urgente: boolean; turno: Turno | null; observaciones: Observacion[];
   nivel_actual: Nivel | null; alertas: Alerta[];
 }
 
 export type LiveEvent =
-  | { type: 'turno_asistente'; data: { texto: string; modo?: string; persona?: string; sistema?: boolean } }
+  | { type: 'turno_asistente'; data: { texto: string; modo?: string; persona?: string; sistema?: boolean; acuse?: string; fuera_de_tema?: boolean } }
   | { type: 'turno_persona'; data: { texto: string } }
   | { type: 'clasificacion'; data: Turno }
   | { type: 'nivel'; data: NivelEvent }
@@ -91,7 +92,7 @@ export const ESTADO_LABEL: Record<string, string> = {
   informado: 'informado', pendiente_confirmar: 'pendiente de confirmar', no_comprendido: 'no comprendido',
   no_sabe: 'no sabe', prefiere_no_responder: 'prefiere no responder',
 };
-export const FUENTE_LABEL: Record<string, string> = { jev: 'IA Jev', offline: 'IA (sin conexión)', regla: 'regla' };
+export const FUENTE_LABEL: Record<string, string> = { jev: 'IA', offline: 'IA', regla: 'Regla' };
 
 export function formatValor(v: Observacion['valor']): string {
   if (v === null || v === undefined) return '—';

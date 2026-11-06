@@ -173,10 +173,13 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
         conf = [t["confidence"] for t in tl if t["confidence"] is not None]
         lat = [t["latency_ms"] for t in tl]
         drafts = s.ds.drafts.values()
-        return {"turnos": len(tl), "latencia_media_ms": round(sum(lat) / len(lat)) if lat else 0,
+        return {"turnos": len(tl), "latencias_ms": lat,
+                "campos_no_sabe": sum(d.state == "no_sabe" for d in drafts),
+                "fuera_de_tema": sum(bool(t.get("fuera_de_tema")) for t in tl), "latencia_media_ms": round(sum(lat) / len(lat)) if lat else 0,
                 "confianza_media": round(sum(conf) / len(conf), 2) if conf else None,
                 "campos_reconocidos": sum(d.state == "informado" for d in drafts),
-                "campos_pendientes": sum(d.state in PENDING_STATES for d in drafts)}
+                "campos_pendientes": sum(d.state == "pendiente_confirmar" for d in drafts),
+                "campos_no_comprendidos": sum(d.state == "no_comprendido" for d in drafts)}
 
     def state_payload(s: Live) -> dict:
         lvl, dims, motivo = nivel(s)
@@ -192,9 +195,14 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
                 s.seen_alerts.add(a["id"])
                 s.emit("alerta", a)
 
-    def say(s: Live, lines: list[str]) -> None:
-        for t in lines:
-            s.emit("turno_asistente", {"texto": t})
+    def say(s: Live, lines: list[str], ack: str | None = None, off_topic: bool = False) -> None:
+        for i, t in enumerate(lines):
+            data = {"texto": t}
+            if i == 0 and ack and t.startswith(ack):
+                data["acuse"] = ack
+            if i == 0 and off_topic:
+                data["fuera_de_tema"] = True
+            s.emit("turno_asistente", data)
 
     def finish_events(s: Live) -> None:
         if s.ds.done and not s.finished:
@@ -249,24 +257,34 @@ def create_app(db_path: str | Path | None = None, offline: bool | None = None) -
         turno = None
         if len(ds.turn_log) > n_before:
             t = ds.turn_log[-1]
-            d = ds.drafts.get(t["code"]) or res.classification.draft if res.classification else None
+            off = bool(t.get("fuera_de_tema"))
+            d = None if off and not res.done and t["code"] not in ds.drafts else (
+                ds.drafts.get(t["code"]) or (res.classification.draft if res.classification else None))
             fb = getattr(s.classifier, "fallback_error", None)
-            turno = {"indicador": t["code"], "valor": _val(d) if d else None, "estado": t["state"],
+            turno = {"indicador": t["code"], "valor": _val(d) if d else None,
+                     "estado": ds.drafts[t["code"]].state if off and t["code"] in ds.drafts else t["state"],
                      "confianza": t["confidence"], "latencia_ms": t["latency_ms"],
-                     "repregunta": t["state"] in PENDING_STATES and ds._retry, "cita": body.texto,
+                     "repregunta": (t["state"] in PENDING_STATES and ds._retry) or (off and res.off_topic),
+                     "fuera_de_tema": off, "intencion": t.get("intencion"), "cita": body.texto,
                      "fuente": "jev" if s.modo == "jev" and not fb else "offline",
                      "fallback_offline": bool(fb), "aviso": ("Jev no respondió; se usó clasificación sin conexión" if fb else None)}
+            s.emit("clasificacion", turno)
+        elif res.off_topic:  # off-topic during a confirmation node: nothing classified, still tell the UI
+            turno = {"indicador": ds._node.indicator_code, "valor": None, "estado": "fuera_de_tema", "confianza": None,
+                     "latencia_ms": 0, "repregunta": True, "fuera_de_tema": True, "intencion": res.intent,
+                     "cita": body.texto, "fuente": "regla", "fallback_offline": False, "aviso": None}
             s.emit("clasificacion", turno)
         if res.urgent:
             ev = ds._urgent_event[1] if ds._urgent_event else body.texto
             s.emit("urgencia", {"cita": ev, "mensaje": "Activación simulada del protocolo — ruta por reglas, sin IA"})
             if not ds.done:
                 ds.abandon()  # protocol message is the last thing said; persists + assessment
-        say(s, res.utterances)
+        say(s, res.utterances, res.ack, res.off_topic)
         publish_state(s)
         finish_events(s)
         p = state_payload(s)
-        return {"decir": res.utterances, "terminada": ds.done, "urgente": ds.urgent, "turno": turno,
+        return {"decir": res.utterances, "acuse": res.ack, "fuera_de_tema": res.off_topic, "intencion": res.intent,
+                "terminada": ds.done, "urgente": ds.urgent, "turno": turno,
                 "observaciones": p["observaciones"], "nivel_actual": p["nivel_actual"],
                 "niveles_por_dimension": p["niveles_por_dimension"], "alertas": p["alertas"]}
 

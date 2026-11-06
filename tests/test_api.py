@@ -69,3 +69,22 @@ def test_ingest_mode_urgent(client):
     with client.stream("GET", f"/api/sesiones/{sid}/eventos") as s:
         body = "".join(s.iter_text())
     assert "event: urgencia" in body and "event: alerta" in body
+
+
+def test_off_topic_turn_flags_and_events(client):
+    sid = client.post("/api/sesiones", json={"persona_id": pid(client, "Rosa"), "canal": "texto"}).json()["sesion_id"]
+    for t in ("Sí, soy yo", "Sí", "no, no estoy sola"):
+        client.post(f"/api/sesiones/{sid}/respuesta", json={"texto": t})
+    out = client.post(f"/api/sesiones/{sid}/respuesta", json={"texto": "que hora es?"}).json()
+    assert out["fuera_de_tema"] is True and out["intencion"] == "pregunta_hora"
+    assert out["turno"]["fuera_de_tema"] is True and out["turno"]["intencion"] == "pregunta_hora"
+    assert out["turno"]["valor"] is None and out["turno"]["repregunta"] is True
+    assert not any(o["indicador"] == "contacto_social_24h" for o in out["observaciones"])
+    out = client.post(f"/api/sesiones/{sid}/respuesta", json={"texto": "nose"}).json()
+    assert out["fuera_de_tema"] is False and out["acuse"] == "No se preocupe, sigamos."
+    obs = {o["indicador"]: o for o in out["observaciones"]}
+    assert obs["contacto_social_24h"]["estado"] == "no_sabe"
+    client.post(f"/api/sesiones/{sid}/terminar")
+    with client.stream("GET", f"/api/sesiones/{sid}/eventos") as r:
+        body = "".join(r.iter_text())
+    assert '"fuera_de_tema": true' in body

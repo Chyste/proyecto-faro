@@ -13,10 +13,11 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Callable, Protocol
 
-from .dialogue_tree import Node, Tree
-from .extractor_jev import (JevClient, JevError, ObservationDraft, build_request, catalog_by_code, map_response,
+from .dialogue_tree import ACKS, ACKS_BY_DIMENSION, INTENTS, OFF_TOPIC, Node, Tree
+from .extractor_jev import (GATE_Q, INTENT_Q, RELEVANCE_MIN, JevClient, JevError, ObservationDraft, build_request, catalog_by_code, map_response,
                             urgent_flags, validate_response)
 from .pipeline import process_after_dialogue
+from .rules import DIM_OF
 from .urgent import detect_urgent_messages, normalize, run_urgent
 
 MAX_QUESTIONS = 12
@@ -29,7 +30,19 @@ HUMAN = re.compile(r"(?:quiero|prefiero|necesito|puedo|me gustaria) hablar con (
                    r"|hablar con una persona|persona de verdad|pasame con (?:una )?persona")
 REFUSAL = re.compile(r"prefiero no (?:responder|contestar|hablar)|no quiero (?:responder|contestar|hablar de eso)"
                      r"|no deseo (?:responder|contestar)")
-NO_SABE = re.compile(r"\bno se(?=\s*[,.;!?]|\s*$)|\bno lo se\b|no recuerdo|no me acuerdo|no tengo idea")
+REFUSAL_SHORT = re.compile(r"^\W*paso\W*$|^\W*prefiero no\W*$")
+NO_SABE = re.compile(r"\bno se(?=\s*[,.;!?]|\s*$)|\bno lo se\b|\bnose\b|no recuerdo|no me acuerdo|no tengo idea"
+                     r"|\bni idea\b|\bquien sabe\b")
+INTENT_PATTERNS = (
+    ("pregunta_hora", re.compile(r"\bque hora(?:s)? (?:es|son|tiene)\b|\bme (?:dice|da|puede decir|sabe decir) la hora\b"
+                                 r"|\bhora es\b")),
+    ("pregunta_quien_es", re.compile(r"\bquien (?:eres|habla|llama)\b|\bquien es (?:usted|ud)\b|\bcon quien hablo\b"
+                                     r"|\bquien me (?:habla|llama)\b|\bde donde (?:me )?llam|\bpor que me llama"
+                                     r"|\bque es esto\b")),
+    ("pide_repetir", re.compile(r"\bno (?:le )?(?:escuche|entendi|oi)\b|\brepet(?:ir|ime)\b|\brepit(?:a|e|ame)\b|\bde nuevo\b"
+                                r"|^\W*(?:que|como|perdon|disculpe|mande|eh)\W*$|\bno entiendo la pregunta\b")),
+    ("no_entiende", re.compile(r"\bno (?:le |te )?entiendo\b")),
+)
 YES = re.compile(r"\b(?:si|claro|bueno|ya|ok|okey|por supuesto|dale|aja|soy yo|yo mismo|yo misma|con ella|con el)\b"
                  r"|^(?:ella|yo)\b|no hay problema|no tengo problema|no me molesta")
 NO = re.compile(r"^(?:no|nop|nunca)\b|no soy|no es (?:ella|el)\b|equivocad|se equivoc")
@@ -41,6 +54,8 @@ class TurnClassification:
     flags: tuple = ()
     latency_ms: int = 0
     raw: dict | None = None
+    relevance: float | None = None  # Noul responde_pregunta; None when the classifier has no gate
+    intent: str | None = None       # set when relevance < RELEVANCE_MIN
 
 
 @dataclass(frozen=True)
@@ -49,6 +64,9 @@ class TurnResult:
     done: bool
     urgent: bool
     classification: TurnClassification | None = None
+    off_topic: bool = False
+    intent: str | None = None
+    ack: str | None = None  # acknowledgment already included at the start of utterances[0]
 
 
 class Classifier(Protocol):
@@ -62,6 +80,35 @@ def parse_yes_no(text: str) -> bool | None:
     if NO.search(n):
         return False
     return True if YES.search(n) else None
+
+
+def detect_intent(norm: str) -> str | None:
+    """Deterministic off-topic intents on normalized text (no Jev needed): hora, quién es, repetir, no entiende."""
+    return next((name for name, pat in INTENT_PATTERNS if pat.search(norm)), None)
+
+
+def dont_know_state(norm: str) -> str | None:
+    if REFUSAL.search(norm) or REFUSAL_SHORT.search(norm):
+        return "prefiere_no_responder"
+    return "no_sabe" if NO_SABE.search(norm) else None
+
+
+def valence(code: str, kind: str, value) -> str:
+    """positive | concerning | neutral for an informed answer (used only to pick an acknowledgment pool)."""
+    bad_when_yes = {"menor_contacto_habitual", "dificultad_puntual_reportada", "caida_reportada", "lesion_reportada",
+                    "confusion_nueva_reportada", "necesita_ayuda_inmediata"}
+    if kind == "bool":
+        yes = bool(value)
+        if code in bad_when_yes:
+            return "concerning" if yes else "positive"
+        return "positive" if yes else "concerning"
+    if kind == "category":
+        good = {"no", "mejora", "completa", "bien"}
+        bad = {"frecuente", "a_veces", "empeora", "parcial", "ninguna", "mal", "persistente"}
+        if code == "tristeza_reportada" and value == "ocasional":
+            return "neutral"
+        return "positive" if value in good else ("concerning" if value in bad else "neutral")
+    return "neutral"
 
 
 def answer_class(draft: ObservationDraft | None, kind: str) -> str | None:
@@ -89,7 +136,7 @@ class JevTurnClassifier:
     def classify(self, node: Node, conversation: list[dict], answer_text: str) -> TurnClassification:
         code = node.indicator_code
         msgs = list(conversation[-self.context_turns:]) + [{"role": "persona", "question_code": None, "text": answer_text}]
-        req = build_request(msgs, [code], catalog_by_code(), self.client.model)
+        req = build_request(msgs, [code], catalog_by_code(), self.client.model, gate=True)
         t0 = time.perf_counter()
         try:
             resp = self.client.extract(req["state"], req["questions"])
@@ -97,9 +144,18 @@ class JevTurnClassifier:
             ms = int((time.perf_counter() - t0) * 1000)
             return TurnClassification(_pending(code, answer_text, f"jev_error: {e}"), (), ms, {"error": str(e)})
         ms = int((time.perf_counter() - t0) * 1000)
-        drafts = map_response(resp, [code], msgs) if validate_response(resp, [code]) else []
+        valid = validate_response(resp, [code], gate=True)
+        if valid:
+            p = float(resp["answers"][GATE_Q]["noul"])
+            if p < RELEVANCE_MIN:
+                intent = resp["answers"][INTENT_Q]["choice"]
+                return TurnClassification(_pending(code, answer_text, f"fuera_de_tema p={p:.2f}", None), (), ms, resp,
+                                          p, intent if intent in INTENTS else "otro_tema")
+        drafts = map_response(resp, [code], msgs) if valid else []
         draft = next((d for d in drafts if d.indicator_code == code), None) or _pending(code, answer_text, "respuesta inválida")
-        return TurnClassification(replace(draft, evidence_quote=answer_text), tuple(urgent_flags(resp)), ms, resp)
+        relevance = float(resp["answers"][GATE_Q]["noul"]) if valid else None
+        return TurnClassification(replace(draft, evidence_quote=answer_text), tuple(urgent_flags(resp)), ms, resp,
+                                  relevance)
 
 
 def _has(n: str, *pats: str) -> bool:
@@ -114,6 +170,10 @@ class KeywordFakeClassifier:
     def classify(self, node: Node, conversation: list[dict], answer_text: str) -> TurnClassification:
         code, n = node.indicator_code, normalize(answer_text).strip()
         kind = node.kind
+        intent = detect_intent(n)
+        if intent:  # same relevance gate as Jev: off-topic -> no value
+            return TurnClassification(_pending(code, answer_text, f"fuera_de_tema {intent}"), (), 0, {"keyword": True},
+                                      0.0, intent)
         value = self._value(code, kind, n)
         if value is None:
             d = _pending(code, answer_text, "sin coincidencia", 0.3)
@@ -203,14 +263,19 @@ class DialogueSession:
         self._urgent_event: tuple[str, str] | None = None
         self._raw: list[dict] = []
         self._flagged = False
+        self._off = 0
+        self._ack_n: dict[str, int] = {}
+        self._last_ack: str | None = None
 
     @property
     def pending_code(self) -> str | None:
         return None if self.done else self._node.indicator_code
 
     # --- utterances
-    def _say(self, node: Node, alt: bool = False) -> str:
+    def _say(self, node: Node, alt: bool = False, prefix: str | None = None) -> str:
         text = (node.alt_prompt if alt and node.alt_prompt else node.prompt).format(nombre=self.name)
+        if prefix:
+            text = f"{prefix} {text}"
         self._msgs.append({"role": "asistente", "question_code": node.indicator_code, "text": text})
         self._node = node
         return text
@@ -241,6 +306,9 @@ class DialogueSession:
 
     # --- confirmation nodes
     def _confirm(self, node: Node, text: str) -> TurnResult:
+        intent = detect_intent(normalize(text))
+        if intent in ("pregunta_hora", "pregunta_quien_es") and self._off == 0 and parse_yes_no(text) is None:
+            return self._off_topic(node, text, intent, None)
         yes = parse_yes_no(text)
         if yes is None and not self._retry:
             self._retry = True
@@ -259,11 +327,20 @@ class DialogueSession:
     def _question(self, node: Node, text: str) -> TurnResult:
         code, norm = node.indicator_code, normalize(text)
         cls = None
-        if REFUSAL.search(norm) or NO_SABE.search(norm):
-            state = "prefiere_no_responder" if REFUSAL.search(norm) else "no_sabe"
+        state = dont_know_state(norm)
+        if state:
             draft = ObservationDraft(code, state, None, None, text, 1.0, state)
         else:
-            cls = self.classifier.classify(node, self._msgs[:-1], text)
+            intent = detect_intent(norm)
+            if intent is None:
+                cls = self.classifier.classify(node, self._msgs[:-1], text)
+                if cls.relevance is not None and cls.relevance < RELEVANCE_MIN:
+                    intent = cls.intent or "otro_tema"
+            if intent == "pide_persona_humana":
+                self.human_requested = True
+                return self._finish(self.tree.node("cierre_humano"), "parcial")
+            if intent:
+                return self._off_topic(node, text, intent, cls)
             draft = cls.draft
             self.turn_log.append({"code": code, "state": draft.state, "confidence": draft.confidence,
                                   "latency_ms": cls.latency_ms, "detail": draft.detail, "retry": self._retry})
@@ -277,7 +354,48 @@ class DialogueSession:
             self._urgent_event = (URGENT_EVENT[code], text)
             return self._urgent(cls)
         nxt_class = answer_class(draft, node.kind)
-        return self._advance(node, nxt_class, cls)
+        return self._advance(node, nxt_class, cls, self._acknowledgment(node, draft))
+
+    # --- relevance gate: off-topic answers record nothing, re-ask once, then no_comprendido
+    def _off_topic(self, node: Node, text: str, intent: str, cls: TurnClassification | None) -> TurnResult:
+        code = node.indicator_code
+        self._off += 1
+        entry = {"code": code, "state": "fuera_de_tema", "confidence": None, "latency_ms": cls.latency_ms if cls else 0,
+                 "detail": intent, "retry": self._off > 1, "fuera_de_tema": True, "intencion": intent}
+        if node.kind != "confirm":
+            self.turn_log.append(entry)
+            if cls is not None:
+                self._raw_turn(code, text, cls)
+        if self._off == 1 or node.kind == "confirm":
+            question = (node.alt_prompt if intent in ("pide_repetir", "no_entiende") and node.alt_prompt
+                        else node.prompt).format(nombre=self.name)
+            reply = OFF_TOPIC.get(intent, OFF_TOPIC["otro_tema"]).format(
+                hora=self.clock().strftime("%H:%M"), pregunta=question)
+            self._msgs.append({"role": "asistente", "question_code": code, "text": reply})
+            return TurnResult([reply], False, False, cls, True, intent)
+        draft = ObservationDraft(code, "no_comprendido", None, None, text, None, f"fuera_de_tema {intent}")
+        self.drafts[code], self._sources[code] = draft, "ia"
+        return self._advance(node, None, cls, self._acknowledgment(node, draft))
+
+    def _acknowledgment(self, node: Node, draft: ObservationDraft) -> str | None:
+        """Deterministic, varied, approved acknowledgment for the answer just recorded."""
+        if draft.state in ("no_sabe", "prefiere_no_responder"):
+            key, pool = "dont_know", ACKS["dont_know"]
+        elif draft.state == "informado":
+            val = (json.loads(draft.value_text or "[]") if node.kind == "list" else
+                   draft.value_text if node.kind == "category" else draft.value_num)
+            v = valence(node.indicator_code, node.kind, val)
+            key = f"{v}:{DIM_OF.get(node.indicator_code)}"
+            pool = ACKS_BY_DIMENSION.get((v, DIM_OF.get(node.indicator_code)), ACKS[v])
+        else:
+            key, pool = "neutral:-", ACKS["neutral"]
+        i = self._ack_n.get(key, 0)
+        self._ack_n[key] = i + 1
+        text = pool[i % len(pool)].format(nombre=self.name)
+        if text == self._last_ack and len(pool) > 1:
+            text = pool[(i + 1) % len(pool)].format(nombre=self.name)
+        self._last_ack = text
+        return text
 
     def _raw_turn(self, code: str, text: str, cls: TurnClassification) -> None:
         self.turn_log[-1]["flags"] = list(cls.flags)
@@ -285,8 +403,10 @@ class DialogueSession:
         self._flagged = self._flagged or bool(cls.flags)
 
     # --- navigation
-    def _advance(self, node: Node, cls_name: str | None, cls: TurnClassification | None = None) -> TurnResult:
+    def _advance(self, node: Node, cls_name: str | None, cls: TurnClassification | None = None,
+                 ack: str | None = None) -> TurnResult:
         self._retry = False
+        self._off = 0
         nid = node.next_for(cls_name)
         if self._flagged and AYUDA not in self.asked_codes and node.id != AYUDA:
             nid = AYUDA
@@ -306,7 +426,7 @@ class DialogueSession:
                 nid = self._skip(nxt)
                 continue
             self.asked_codes.append(nxt.indicator_code)
-            return TurnResult([self._say(nxt)], False, False, cls)
+            return TurnResult([self._say(nxt, prefix=ack)], False, False, cls, ack=ack)
 
     def _condition(self, node: Node) -> bool:
         if node.condition == "tiene_tratamiento":

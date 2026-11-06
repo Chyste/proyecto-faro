@@ -38,6 +38,19 @@ NOUL_NO = 0.3       # Noul: p <= 0.3 -> false; the band between is pendiente_con
 URGENT_YES = 0.5    # urgent indicators and safety-net Nouls: lower "yes" bar (missing an emergency costs more)
 NULL_REASONS = ("no_sabe", "prefiere_no_responder", "no_comprendido")
 
+# Relevance gate (Companion Noul pattern): runs on every per-turn classification. p < RELEVANCE_MIN -> off-topic.
+RELEVANCE_MIN = 0.5
+GATE_Q = "responde_pregunta"
+INTENT_Q = "intencion_fuera_de_tema"
+INTENT_OPTIONS = {
+    "pregunta_hora": "La persona pregunta la hora o la fecha",
+    "pregunta_quien_es": "La persona pregunta quién habla, quién es el asistente o por qué llaman",
+    "pide_repetir": "La persona pide repetir o no escuchó la pregunta",
+    "pide_persona_humana": "La persona pide hablar con una persona",
+    "otro_tema": "La persona habla de otra cosa que no responde la pregunta",
+    "no_entiende": "La persona dice que no entiende la pregunta",
+}
+
 CONTEXT = "Llamada de seguimiento a una persona mayor; período: desde la última conversación, máximo 24 horas"
 
 URGENT_NOULS = {
@@ -133,17 +146,29 @@ def _turns(messages: list[dict]) -> list[dict]:
     return turns
 
 
-def build_request(messages: list[dict], codes: list[str], cat: dict[str, Indicator], model: str | None = None) -> dict:
+def _gate_questions() -> dict[str, dict]:
+    return {GATE_Q: {"type": "noul", "instructions": "¿La respuesta de la persona contesta la pregunta que se le hizo? "
+                     "Considera solo el último turno de la persona frente a la última pregunta del asistente.",
+                     "criteria": {"true": "La persona responde lo que se le preguntó, aunque sea con 'no' o 'no sé'",
+                                  "false": "La persona pregunta otra cosa, cambia de tema o no responde lo preguntado"}},
+            INTENT_Q: {"type": "choice", "instructions": "Si la persona no respondió la pregunta, elige qué hizo en su lugar.",
+                       "criteria": dict(INTENT_OPTIONS)}}
+
+
+def build_request(messages: list[dict], codes: list[str], cat: dict[str, Indicator], model: str | None = None,
+                  gate: bool = False) -> dict:
     questions: dict[str, dict] = {}
     for code in codes:
         questions.update(_questions_for(code, cat[code]))
     for qid, (instr, yes, no) in URGENT_NOULS.items():
         questions[qid] = {"type": "noul", "instructions": instr, "criteria": {"true": yes, "false": no}}
+    if gate:
+        questions.update(_gate_questions())
     return {"model": model or os.environ.get("TYPESAFE_MODEL") or DEFAULT_MODEL,
             "state": {"contexto": CONTEXT, "turnos": _turns(messages)}, "questions": questions}
 
 
-def _expected(codes: list[str]) -> dict[str, str]:
+def _expected(codes: list[str], gate: bool = False) -> dict[str, str]:
     cat = catalog_by_code()
     exp: dict[str, str] = {}
     for c in codes:
@@ -151,6 +176,8 @@ def _expected(codes: list[str]) -> dict[str, str]:
             exp[qid] = q["type"]
     for qid in URGENT_NOULS:
         exp[qid] = "noul"
+    if gate:
+        exp[GATE_Q], exp[INTENT_Q] = "noul", "choice"
     return exp
 
 
@@ -166,16 +193,16 @@ def _answer_ok(ans, kind: str, allowed: set[str] | None) -> bool:
     return ans.get("choice") in (allowed or set()) and _num(ans.get("confidence"))
 
 
-def validate_response(resp: dict, codes: list[str]) -> bool:
+def validate_response(resp: dict, codes: list[str], gate: bool = False) -> bool:
     """Every expected answer id present, typed correctly and with in-range values."""
     answers = resp.get("answers") if isinstance(resp, dict) else None
     if not isinstance(answers, dict):
         return False
     cat = catalog_by_code()
-    for qid, kind in _expected(codes).items():
+    for qid, kind in _expected(codes, gate).items():
         allowed = None
         if kind == "choice":
-            allowed = set(cat[qid].allowed_values) | set(NULL_REASONS)
+            allowed = set(INTENT_OPTIONS) if qid == INTENT_Q else set(cat[qid].allowed_values) | set(NULL_REASONS)
         if not _answer_ok(answers.get(qid), kind, allowed):
             return False
     return True

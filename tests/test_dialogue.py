@@ -6,7 +6,7 @@ import pytest
 
 from src.checkin.dialogue import (DialogueSession, JevTurnClassifier, KeywordFakeClassifier,
                                   TurnClassification)
-from src.checkin.dialogue_tree import TREE
+from src.checkin.dialogue_tree import TREE, approved_prefixes
 from src.checkin.extractor_jev import JevClient, ObservationDraft
 from tests.checkin_helpers import build_db
 
@@ -180,7 +180,12 @@ def test_all_utterances_come_from_tree(conn):
     s, utter, _ = run(conn, "Rosa", INTRO_OK + ["Me siento sola con frecuencia", "No", "Sí", "Igual que siempre",
                                                 "Sí, todos", "Bien", "No", "No", "No"])
     allowed = {t.format(nombre="Rosa") for t in TREE.all_utterances()}
-    assert all(u in allowed for u in utter)
+    prefixes = approved_prefixes("Rosa")
+
+    def approved(u):  # an approved acknowledgment may precede a tree question
+        return u in allowed or any(u.startswith(p + " ") and u[len(p) + 1:] in allowed for p in prefixes)
+
+    assert all(approved(u) for u in utter)
     assert utter[0] == ("Buenos días, Rosa. Le habla el asistente automático del programa de acompañamiento. ¿Hablo con Rosa?")
 
 
@@ -221,8 +226,13 @@ def test_jev_turn_classifier_with_fake_transport():
         calls.append(body)
         ans = {}
         for qid, q in body["questions"].items():
-            ans[qid] = ({"type": "choice", "choice": "a_veces", "confidence": 0.9} if q["type"] == "choice"
-                        else {"type": "noul", "noul": 0.05})
+            if qid == "responde_pregunta":
+                ans[qid] = {"type": "noul", "noul": 0.95}
+            elif qid == "intencion_fuera_de_tema":
+                ans[qid] = {"type": "choice", "choice": "otro_tema", "confidence": 0.9}
+            else:
+                ans[qid] = ({"type": "choice", "choice": "a_veces", "confidence": 0.9} if q["type"] == "choice"
+                            else {"type": "noul", "noul": 0.05})
         return 200, {"answers": ans, "model": "fake"}
 
     client = JevClient("k", transport=transport)

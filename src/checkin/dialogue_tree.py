@@ -116,3 +116,33 @@ NODES: tuple[Node, ...] = (
 )
 
 TREE = Tree(NODES)
+
+
+# --- Conversation-quality templates (approved text; the only non-tree utterances) -----------------
+# Off-topic replies: ``{hora}`` is the call clock (HH:MM), ``{pregunta}`` the question being re-asked.
+OFF_TOPIC: dict[str, str] = {
+    "pregunta_hora": "Son las {hora}. Le preguntaba: {pregunta}",
+    "pregunta_quien_es": "Soy el asistente automático del programa de acompañamiento de la municipalidad. "
+                         "Le preguntaba: {pregunta}",
+    "pide_repetir": "Con gusto. {pregunta}",
+    "otro_tema": "Entiendo. Para terminar pronto, le preguntaba: {pregunta}",
+    "no_entiende": "Disculpe, se lo digo de otra forma. {pregunta}",
+}
+INTENTS = ("pregunta_hora", "pregunta_quien_es", "pide_repetir", "pide_persona_humana", "otro_tema", "no_entiende")
+
+# Short (<= 8 words), never clinical acknowledgments chosen by answer valence (and dimension override).
+ACKS: dict[str, tuple[str, ...]] = {
+    "positive": ("Qué bueno escuchar eso.", "Me alegra, {nombre}.", "Qué bien, gracias."),
+    "concerning": ("Lamento escuchar eso.", "Gracias por contármelo, {nombre}.", "Lamento que se sienta así."),
+    "neutral": ("Entiendo.", "Gracias.", "Anotado, gracias."),
+    "dont_know": ("No se preocupe, sigamos.",),
+}
+ACKS_BY_DIMENSION: dict[tuple[str, str], tuple[str, ...]] = {
+    ("concerning", "aislamiento"): ("Lamento que se sienta así.", "Gracias por contármelo, {nombre}."),
+    ("concerning", "funcional"): ("Entiendo, gracias por contármelo.", "Lamento que le cueste."),
+}
+
+
+def approved_prefixes(name: str) -> set[str]:
+    pools = [t for ts in ACKS.values() for t in ts] + [t for ts in ACKS_BY_DIMENSION.values() for t in ts]
+    return {t.format(nombre=name) for t in pools}
