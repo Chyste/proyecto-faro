@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getPersonas } from '../data/syntheticData';
 import type { Control, Persona } from '../data/types';
+import { useActions } from '../components/actions/ActionModals';
+import { usePersonaState, fechaHora, TIPO_LABEL } from '../state/FaroStore';
 import LevelBadge from '../components/ui/LevelBadge';
 import DemoPill from '../components/ui/DemoPill';
 import {
@@ -86,8 +88,27 @@ function enNivelDesde(controles: Control[]): string | null {
   return `En nivel ${NIVEL_TO_LEVEL[last.nivelResultante]} desde el ${fechaCorta(since)}.`;
 }
 
-const OutlineBtn = ({ children }: { children: string }) => (
-  <button type="button" className="rounded-full border border-ink bg-canvas px-6 py-3 text-[14px] font-semibold whitespace-nowrap text-ink">
+const TABS = [
+  { key: 'resumen', label: 'Resumen' },
+  { key: 'red', label: 'Red de apoyo' },
+  { key: 'pref', label: 'Preferencias y consentimiento' },
+  { key: 'salud', label: 'Salud*' },
+  { key: 'actividad', label: 'Actividad' },
+] as const;
+
+const ESTADO_LABEL = { pendiente: 'Pendiente', en_revision: 'En revisión', revisado: 'Revisado', derivado: 'Derivado' } as const;
+
+function Row2({ k, v }: { k: string; v?: string | null }) {
+  return (
+    <div className="flex gap-4 border-t border-hairline-soft py-2.5 first:border-t-0">
+      <span className="w-[200px] shrink-0 text-[13px] text-muted">{k}</span>
+      <span className="flex-1 text-[14px] leading-[20px] text-ink">{v && v.trim() ? v : '—'}</span>
+    </div>
+  );
+}
+
+const OutlineBtn = ({ children, onClick }: { children: string; onClick?: () => void }) => (
+  <button type="button" onClick={onClick} className="rounded-full border border-ink bg-canvas px-6 py-3 text-[14px] font-semibold whitespace-nowrap text-ink">
     {children}
   </button>
 );
@@ -96,6 +117,9 @@ export default function PersonaDetallePage() {
   const { id } = useParams<{ id: string }>();
   const personas = useMemo(() => getPersonas(), []);
   const p = personas.find((x) => x.id === id) ?? personas[0];
+  const ps = usePersonaState(p?.id ?? '');
+  const { open } = useActions();
+  const [tab, setTab] = useState<(typeof TABS)[number]['key']>('resumen');
 
   if (!p) {
     return (
@@ -116,7 +140,6 @@ export default function PersonaDetallePage() {
   const seguimientoDesde = controles[0]?.fecha;
   const motivo = controles.at(-1)?.resumen;
   const recientes = [...controles].reverse().slice(0, 4);
-  const responsable = p.profesionalAsignado ? primerNombre(p.profesionalAsignado) : 'Sin asignar';
 
   return (
     <main className="flex flex-col gap-[18px] px-8 py-6">
@@ -141,15 +164,22 @@ export default function PersonaDetallePage() {
               {p.nombre} · {p.edad} años · {p.comuna}
             </h1>
             <p className="text-[13px] text-muted">
-              Responsable: {responsable} &nbsp;·&nbsp; Próximo contacto: —
+              Responsable: {ps.responsable ? primerNombre(ps.responsable) : 'Sin asignar'} &nbsp;·&nbsp; Próximo contacto:{' '}
+              {ps.proximaFecha ? fechaHora(ps.proximaFecha) : '—'} &nbsp;·&nbsp; Revisión: {ESTADO_LABEL[ps.estadoRevision]}
+              {ps.pausado ? ' · Seguimiento pausado' : ''}
             </p>
           </div>
           <div className="flex shrink-0 gap-2.5">
-            <button type="button" className="rounded-full bg-ink px-6 py-3 text-[14px] font-semibold whitespace-nowrap text-white">
+            {!ps.responsable && <OutlineBtn onClick={() => open('asignar', p.id)}>Asignarme</OutlineBtn>}
+            <button
+              type="button"
+              onClick={() => open('llamada', p.id)}
+              className="rounded-full bg-ink px-6 py-3 text-[14px] font-semibold whitespace-nowrap text-white"
+            >
               Registrar llamada
             </button>
-            <OutlineBtn>Derivar</OutlineBtn>
-            <OutlineBtn>Cerrar con resultado</OutlineBtn>
+            <OutlineBtn onClick={() => open('derivar', p.id)}>Derivar</OutlineBtn>
+            <OutlineBtn onClick={() => open('cerrar', p.id)}>Cerrar con resultado</OutlineBtn>
           </div>
         </div>
         <hr className="border-hairline-soft" />
@@ -162,8 +192,89 @@ export default function PersonaDetallePage() {
           </p>
           <span className="text-[11px] whitespace-nowrap text-muted">Reglas explícitas · sin IA</span>
         </div>
+        {ps.cierre && (
+          <p className="rounded-[10px] bg-surface-soft px-3 py-2 text-[13px] text-body">
+            Cerrado como «{ps.cierre.resultado}» por {ps.cierre.autor} el {fechaHora(ps.cierre.fecha)}. Nota: {ps.cierre.nota} (el nivel calculado se mantiene).
+          </p>
+        )}
+        {nivelDe(p) === 3 && <p className="rounded-[10px] bg-l3-bg px-3 py-2 text-[13px] text-l3-fg">Activación simulada del protocolo: no se realizan llamadas reales.</p>}
       </section>
 
+      <div role="tablist" className="flex flex-wrap gap-2">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={`rounded-full px-4 py-2 text-[14px] font-medium ${tab === t.key ? 'bg-ink text-white' : 'border border-hairline bg-canvas text-ink hover:bg-surface-soft'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'red' && (
+        <section className={`flex flex-col p-5 ${card}`}>
+          <h2 className="mb-2 text-[16px] font-semibold text-ink">Red de apoyo</h2>
+          <Row2 k="Contacto de confianza" v={p.contactoEmergencia} />
+          <Row2 k="Vive sola" v="—" />
+          <Row2 k="Apoyo" v={p.red_apoyo_base} />
+          <Row2 k="Autonomía base" v={p.autonomia_base} />
+          <Row2 k="Observaciones" v={p.observaciones} />
+        </section>
+      )}
+
+      {tab === 'pref' && (
+        <section className={`flex flex-col p-5 ${card}`}>
+          <h2 className="mb-2 text-[16px] font-semibold text-ink">Preferencias y consentimiento</h2>
+          <Row2 k="Horario preferido" v="—" />
+          <Row2 k="Canal" v="Llamada telefónica (simulada)" />
+          <Row2 k="Consentimiento vigente" v={`Sí · registrado el ${fechaCorta(p.fechaRegistro)}`} />
+          <Row2 k="Intereses" v={p.intereses?.join(', ')} />
+          <div className="mt-3 flex items-center gap-3">
+            <button type="button" disabled={ps.pausado} onClick={() => open('pausar', p.id)} className="rounded-full border border-ink bg-canvas px-5 py-2.5 text-[14px] font-semibold text-ink disabled:opacity-40">
+              {ps.pausado ? 'Seguimiento pausado' : 'Pausar seguimiento'}
+            </button>
+            <span className="text-[12px] text-muted">Queda registrado quién, cuándo y por qué.</span>
+          </div>
+        </section>
+      )}
+
+      {tab === 'salud' && (
+        <section className={`flex flex-col p-5 ${card}`}>
+          <h2 className="mb-1 text-[16px] font-semibold text-ink">Salud*</h2>
+          <p className="mb-2 text-[12px] text-muted">* Visible según habilitación.</p>
+          <Row2 k="En tratamiento" v={p.medicamentos?.length ? 'Sí' : p.medicamentos ? 'No' : undefined} />
+          {p.medicamentos && p.medicamentos.length > 0 ? (
+            p.medicamentos.map((m) => <Row2 key={m.name} k="Medicamento declarado" v={`${m.name} (${m.source}, ${fechaCorta(m.verified_at)})`} />)
+          ) : (
+            <Row2 k="Medicamentos declarados" v="—" />
+          )}
+        </section>
+      )}
+
+      {tab === 'actividad' && (
+        <section className={`flex flex-col gap-3 p-5 ${card}`}>
+          <h2 className="text-[16px] font-semibold text-ink">Actividad</h2>
+          {ps.acciones.length === 0 && <p className="text-[13px] text-muted">Aún no hay acciones humanas registradas.</p>}
+          {ps.acciones.map((a) => (
+            <div key={a.id} className="border-t border-hairline-soft pt-3 first:border-t-0 first:pt-0">
+              <p className="text-[13px] font-semibold text-ink">
+                {TIPO_LABEL[a.tipo]}
+                {a.resultado ? ` · ${a.resultado}` : ''}
+                {a.destino ? ` · ${a.destino}` : ''}
+              </p>
+              <p className="text-[12px] text-muted">
+                {a.autor} · {fechaHora(a.fecha)}
+              </p>
+              <p className="text-[13px] text-body">{a.nota}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {tab === 'resumen' && (<>
       <h2 className="text-[16px] font-semibold text-ink">Cinco dimensiones · última llamada, {fechaCorta(ultima)}</h2>
       <div className="grid grid-cols-5 gap-4">
         {DIMS.map((d) => {
@@ -245,9 +356,10 @@ export default function PersonaDetallePage() {
               <LevelBadge level={NIVEL_TO_LEVEL[c.nivelResultante]} />
             </div>
           ))}
-          <p className="border-t border-hairline-soft pt-3 text-[12px] text-muted">Próxima: —</p>
+          <p className="border-t border-hairline-soft pt-3 text-[12px] text-muted">Próxima: {ps.proximaFecha ? fechaHora(ps.proximaFecha) : '—'}</p>
         </section>
       </div>
+      </>)}
     </main>
   );
 }

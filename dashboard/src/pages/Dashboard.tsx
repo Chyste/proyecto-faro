@@ -4,6 +4,8 @@ import { getPersonas } from '../data/syntheticData';
 import type { Persona } from '../data/types';
 import LevelBadge, { type LevelKey } from '../components/ui/LevelBadge';
 import DemoPill from '../components/ui/DemoPill';
+import { useActions } from '../components/actions/ActionModals';
+import { useFaro } from '../state/FaroStore';
 import { diasEntre, fechaCorta, fechaHoy, fechaLarga, nivelDe, primerNombre } from '../lib/faro';
 
 type FilterKey = 'accion' | 'todos' | 'sinResp' | 'sinEval' | 'mis';
@@ -27,7 +29,7 @@ interface Row {
   diasSin: number;
 }
 
-function buildRow(p: Persona, hoy: string): Row {
+function buildRow(p: Persona, hoy: string, resp: string | null): Row {
   const sinEval = p.fechaUltimoControl < hoy;
   const lastControl = p.historialControles.at(-1);
   const lastSenal = [...p.senales].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
@@ -39,7 +41,7 @@ function buildRow(p: Persona, hoy: string): Row {
     p,
     level: sinEval ? 'na' : nivelDe(p),
     motivo,
-    responsable: p.profesionalAsignado ? primerNombre(p.profesionalAsignado) : null,
+    responsable: resp ? primerNombre(resp) : null,
     diasSin: diasEntre(p.fechaUltimoControl, hoy),
   };
 }
@@ -59,16 +61,24 @@ function Counter({ n, caption, level, dashed, accent }: { n: number; caption: st
 }
 
 function Action({ row }: { row: Row }) {
+  const { open } = useActions();
   if (row.level === 3 || row.level === 2 || row.level === 'na') {
     const primary = row.level === 3;
+    const asignar = !row.responsable;
     return (
-      <span
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          open(asignar ? 'asignar' : 'llamada', row.p.id);
+        }}
         className={`inline-flex rounded-full px-[18px] py-[9px] text-[13px] font-semibold whitespace-nowrap ${
           primary ? 'bg-ink text-white' : 'border border-ink bg-canvas text-ink'
         }`}
       >
-        {row.responsable ? 'Registrar llamada' : 'Asignarme'}
-      </span>
+        {asignar ? 'Asignarme' : 'Registrar llamada'}
+      </button>
     );
   }
   return <span className="text-[12px] leading-4 text-muted">Llamada automática de seguimiento</span>;
@@ -78,7 +88,11 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<FilterKey>('todos');
   const personas = useMemo(() => getPersonas(), []);
   const hoy = useMemo(() => fechaHoy(personas), [personas]);
-  const rows = useMemo(() => personas.map((p) => buildRow(p, hoy)).sort((a, b) => priority(b) - priority(a)), [personas, hoy]);
+  const { state } = useFaro();
+  const rows = useMemo(
+    () => personas.map((p) => buildRow(p, hoy, state.byId[p.id]?.responsable ?? null)).sort((a, b) => priority(b) - priority(a)),
+    [personas, hoy, state],
+  );
 
   const count = (l: LevelKey) => rows.filter((r) => r.level === l).length;
   const visible = rows.filter((r) => {
