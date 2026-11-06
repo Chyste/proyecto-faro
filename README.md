@@ -16,6 +16,8 @@ Diseño funcional del CRM y seguimiento por voz: [Etapa 3 · Diseño de FARO](do
 
 Alcance inmediato de la demo: [Parámetros, cuatro niveles de atención y llamadas simuladas](docs/MVP_PARAMETROS_Y_SIMULACION.md).
 
+Base de datos implementada: [SQLite, catálogo y datos sintéticos](docs/BASE_DE_DATOS.md).
+
 ```
 .
 ├── README.md                  ← este archivo
@@ -33,7 +35,8 @@ Alcance inmediato de la demo: [Parámetros, cuatro niveles de atención y llamad
 │   └── synthetic/             [CORE-C] check-ins simulados para la demo
 ├── src/
 │   ├── territorial/           capa A: carga CASEN/Censo, modelo, índice comunal
-│   └── checkin/               capa C: generador sintético, CUSUM, alertas
+│   ├── checkin/               capa C: CUSUM y alertas (pendientes)
+│   └── db/                    SQLite, catálogo de indicadores y conversaciones sintéticas
 ├── notebooks/                 exploración
 └── outputs/                   gráficos, mapas y tablas para el pitch
 ```
@@ -45,6 +48,15 @@ Alcance inmediato de la demo: [Parámetros, cuatro niveles de atención y llamad
 uv sync            # instala dependencias
 uv run python ...  # ejecuta dentro del entorno
 ```
+
+Para preparar la base local de demostración y verificarla:
+
+```bash
+uv run python -m src.db --db data/processed/faro.db
+uv run pytest -q
+```
+
+El comando crea el esquema, cinco dimensiones, 17 indicadores y cinco personas ficticias con 70 conversaciones. Si ya hay personas, conserva los datos existentes. Las observaciones, alertas y resultados CUSUM quedan vacíos hasta implementar el procesamiento.
 
 ## Horarios críticos (6 nov 2026)
 

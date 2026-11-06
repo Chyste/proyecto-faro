@@ -2,7 +2,7 @@
 
 Versión de trabajo: 6 de noviembre de 2026.
 
-Este documento concreta el alcance inmediato: **qué datos muestra el dashboard, qué análisis realiza y cómo lo alimentan llamadas sintéticas**. Adopta los cuatro niveles y las cinco dimensiones indicadas por el equipo. Los campos y reglas detalladas son una propuesta implementable para la demo; aún no están implementados.
+Este documento concreta el alcance inmediato: **qué datos muestra el dashboard, qué análisis realiza y cómo lo alimentan llamadas sintéticas**. Adopta los cuatro niveles y las cinco dimensiones indicadas por el equipo. Los campos y reglas detalladas son una propuesta implementable para la demo. Ya existe una [base SQLite con catálogo y conversaciones sintéticas](BASE_DE_DATOS.md), que cubre un subconjunto de este contrato; el dashboard y el procesamiento de indicadores y niveles siguen pendientes.
 
 ## 1. Las dos piezas del MVP
 
@@ -165,6 +165,8 @@ CUSUM requiere una referencia y parámetros de diseño; véase [NIST](https://ww
 ## 7. Llamadas sintéticas: cinco personas y catorce días
 
 Se propone **un intento programado por persona y día: 70 intentos**, incluidos los fallidos y no respondidos. Se conserva la relación entre cada conversación, sus indicadores y sus resultados esperados.
+
+La carga SQLite actual ya contiene 70 intentos para Rosa, Luis, Carmen, Jorge y Elena, con deterioro gradual, una caída urgente y una racha sin respuesta. La tabla siguiente describe los escenarios objetivo ampliados; aún no coincide con los perfiles y guiones implementados. La carga actual no incluye indicadores extraídos ni niveles esperados.
 
 | Perfil ficticio | Historia | Qué demuestra |
 |---|---|---|
