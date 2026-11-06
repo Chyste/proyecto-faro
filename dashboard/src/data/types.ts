@@ -5,6 +5,11 @@
 export type NivelSeguimiento = 'estable' | 'preventivo' | 'prioritario' | 'urgente';
 
 export type DominioBienestar =
+  | 'aislamiento'
+  | 'funcional'
+  | 'medicacion'
+  | 'emocional_cognitiva'
+  | 'seguridad'
   | 'aislamiento_social'
   | 'movilidad_autonomia'
   | 'caidas'
@@ -32,6 +37,12 @@ export interface Persona {
   estadoRevision: EstadoRevision;
   contactoEmergencia: string;
   observaciones: string;
+  direccion?: string;
+  autonomia_base?: string;
+  red_apoyo_base?: string;
+  intereses?: string[];
+  medicamentos?: Array<{ name: string; source: string; verified_at: string }>;
+  scenario_id?: string;
 }
 
 export interface Senal {

@@ -73,15 +73,43 @@ export default function PersonaDetallePage() {
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-gray-400" />
-                <span>{persona.comuna}, {persona.region}</span>
+                <span>{persona.direccion || `${persona.comuna}, ${persona.region}`}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-gray-400" />
                 <span className="text-xs">Emergencia: {persona.contactoEmergencia}</span>
               </div>
             </div>
+
+            {persona.medicamentos && persona.medicamentos.length > 0 && (
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-700">Tratamiento farmacológico:</p>
+                <div className="mt-1 space-y-1">
+                  {persona.medicamentos.map((m, i) => (
+                    <div key={i} className="text-xs bg-blue-50 text-blue-800 px-2.5 py-1 rounded-md flex justify-between">
+                      <span className="font-medium">{m.name}</span>
+                      <span className="text-[10px] text-blue-600">{m.source}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {persona.intereses && persona.intereses.length > 0 && (
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-700">Intereses declarados:</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {persona.intereses.map((tag, i) => (
+                    <span key={i} className="text-[11px] bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full capitalize">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="pt-3 border-t border-gray-100">
-              <p className="text-xs font-medium text-gray-500">Observaciones generales:</p>
+              <p className="text-xs font-medium text-gray-500">Autonomía y Red:</p>
               <p className="text-xs text-gray-600 mt-1">{persona.observaciones}</p>
             </div>
           </div>
@@ -117,10 +145,10 @@ export default function PersonaDetallePage() {
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
               <Activity className="w-4 h-4 text-primary-500" />
-              Historial de Controles Telefónicos
+              Historial de Controles Telefónicos ({persona.historialControles.length})
             </h3>
             <div className="space-y-3">
-              {persona.historialControles.map((c) => (
+              {[...persona.historialControles].reverse().map((c) => (
                 <div key={c.id} className="border border-gray-100 rounded-lg p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-800">{c.fecha} · {c.duracion} min</span>
