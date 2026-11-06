@@ -1,5 +1,6 @@
 import { CircleAlert, CircleCheck, CircleDashed, OctagonAlert, TriangleAlert } from 'lucide-react';
 import type { Level } from '../../lib/faro';
+import { usePrevious } from '../../lib/motion';
 
 export type LevelKey = Level | 'na';
 
@@ -20,9 +21,11 @@ export const levelLabel = (l: LevelKey) => CONFIG[l].label;
 /** Level pill: icon + word + color (never color alone). */
 export default function LevelBadge({ level, className = '' }: { level: LevelKey; className?: string }) {
   const { label, Icon, cls } = CONFIG[level];
+  const prev = usePrevious(level);
+  const changed = prev !== undefined && prev !== level;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full py-[5px] pl-2.5 pr-3 text-[12px] font-semibold whitespace-nowrap ${cls} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full py-[5px] pl-2.5 pr-3 text-[12px] font-semibold whitespace-nowrap ${cls} ${changed ? 'anim-ring' : ''} ${className}`}
     >
       <Icon className="size-3.5 shrink-0" aria-hidden />
       {label}

@@ -1,15 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Modal, { Field, fieldCls } from '../ui/Modal';
 import Toast from '../ui/Toast';
+import Drawer from '../ui/Drawer';
+import Transcripcion from './Transcripcion';
 import { getPersonas } from '../../data/syntheticData';
 import { nivelDe } from '../../lib/faro';
-import { CURRENT_USER, newAccion, useFaro } from '../../state/FaroStore';
+import { CURRENT_USER, newAccion, proximaLlamada, useFaro, type AccionLog, type Frecuencia, type PersonaState, type TipoAccion } from '../../state/FaroStore';
 
-export type ActionKind = 'asignar' | 'llamada' | 'derivar' | 'cerrar' | 'pausar';
+export type ActionKind = 'asignar' | 'transcripcion' | 'derivar' | 'contacto' | 'llamadaHumana' | 'frecuencia' | 'cerrar' | 'pausar';
 
 interface Ctx {
   open: (kind: ActionKind, personaId: string) => void;
   toast: (msg: string) => void;
+  reviewed: ReadonlySet<string>;
+  markReviewed: (personaId: string) => void;
 }
 const ActionsCtx = createContext<Ctx | null>(null);
 export function useActions() {
@@ -18,11 +22,12 @@ export function useActions() {
   return c;
 }
 
-const PROTOCOLO = 'Activación simulada del protocolo: no se realizan llamadas reales; solo queda el registro de la acción.';
+const PROTOCOLO = 'Situación de riesgo · Activación simulada del protocolo: no se envía nada real; solo queda el registro de la decisión.';
 
 export function ActionsProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<{ kind: ActionKind; id: string } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [reviewed, setReviewed] = useState<ReadonlySet<string>>(new Set());
   const timer = useRef<number | undefined>(undefined);
 
   const toast = useCallback((m: string) => {
@@ -32,7 +37,8 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const value = useMemo(() => ({ open: (kind: ActionKind, id: string) => setCurrent({ kind, id }), toast }), [toast]);
+  const markReviewed = useCallback((id: string) => setReviewed((r) => (r.has(id) ? r : new Set(r).add(id))), []);
+  const value = useMemo(() => ({ open: (kind: ActionKind, id: string) => setCurrent({ kind, id }), toast, reviewed, markReviewed }), [toast, reviewed, markReviewed]);
   const close = () => setCurrent(null);
 
   return (
@@ -44,31 +50,57 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const RESULTADOS_LLAMADA = ['Contestó', 'No contestó', 'Número equivocado', 'Pidió llamar más tarde'];
-const DESTINOS = ['CESFAM — Dr. Pablo Díaz', 'Visita domiciliaria', 'Junta de vecinos', 'Contacto de confianza (solo si autorizado)'];
+const DESTINOS = ['CESFAM', 'Visita domiciliaria', 'Junta de vecinos', 'Servicio social municipal'];
 const CIERRES = ['Resuelto', 'Falsa alarma', 'Sin acción necesaria'];
+const FRECUENCIAS: Frecuencia[] = ['diaria', 'cada 2 días', 'semanal'];
 
 function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; personaId: string; onClose: () => void; toast: (m: string) => void }) {
   const { state, dispatch } = useFaro();
+  const { open, reviewed, markReviewed } = useActions();
   const persona = getPersonas().find((p) => p.id === personaId);
   const ps = state.byId[personaId];
   const [a, setA] = useState('');
   const [b, setB] = useState('');
   const [c, setC] = useState('');
   const [nota, setNota] = useState('');
-  const [fecha, setFecha] = useState('');
-  const [check, setCheck] = useState(false);
-  const [confirmContacto, setConfirmContacto] = useState(false);
+  const [justif, setJustif] = useState('');
+
+  useEffect(() => {
+    if (kind === 'transcripcion') markReviewed(personaId);
+  }, [kind, personaId, markReviewed]);
 
   if (!persona || !ps) return null;
   const nivel = nivelDe(persona);
-  const hayContacto = ps.acciones.some((x) => x.tipo === 'llamada' && x.resultado === 'Contestó');
   const nombre = persona.nombre;
-  const done = (accionTipo: Parameters<typeof newAccion>[0], notaTxt: string, extra: Parameters<typeof newAccion>[2], patch: Parameters<typeof dispatch>[0] extends infer T ? (T extends { patch?: infer P } ? P : never) : never, msg: string) => {
+  const done = (accionTipo: TipoAccion, notaTxt: string, extra: Partial<AccionLog> | undefined, patch: Partial<PersonaState>, msg: string) => {
     dispatch({ type: 'log', id: personaId, accion: newAccion(accionTipo, notaTxt, extra), patch });
     toast(msg);
     onClose();
   };
+  const alertaN3 = nivel === 3 && <p className="anim-ring-l3 rounded-[10px] bg-l3-bg px-3 py-2 text-[13px] font-medium text-l3-fg">{PROTOCOLO}</p>;
+
+  if (kind === 'transcripcion') {
+    const go = (k: ActionKind) => () => open(k, personaId);
+    const btn = 'rounded-full border border-ink bg-canvas px-4 py-2 text-[13px] font-semibold text-ink';
+    return (
+      <Drawer
+        title={`Revisar transcripción · ${nombre}`}
+        subtitle="Llamada automática de seguimiento (IA de voz). El operador revisa y decide."
+        onClose={onClose}
+        footer={
+          <>
+            <button type="button" className={btn} onClick={go('llamadaHumana')}>Solicitar llamada humana</button>
+            <button type="button" className={btn} onClick={go('contacto')}>Avisar a contacto</button>
+            <button type="button" className={btn} onClick={go('derivar')}>Derivar</button>
+            <button type="button" className="rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-white" onClick={go('cerrar')}>Cerrar con decisión</button>
+          </>
+        }
+      >
+        {alertaN3}
+        <Transcripcion persona={persona} />
+      </Drawer>
+    );
+  }
 
   if (kind === 'asignar') {
     return (
@@ -76,7 +108,7 @@ function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; pe
         title={`Asignarme el caso de ${nombre}`}
         onClose={onClose}
         primaryLabel="Asignarme"
-        onPrimary={() => done('asignacion', `Caso asignado a ${CURRENT_USER}.`, undefined, { responsable: CURRENT_USER }, 'Caso asignado')}
+        onPrimary={() => done('asignacion', 'Se asignó el caso.', undefined, { responsable: CURRENT_USER }, 'Caso asignado')}
       >
         <p className="text-[14px] leading-[21px] text-body">
           Quedarás como responsable de {nombre}. Se registrará quién lo asignó ({CURRENT_USER}, usuaria de demostración), cuándo y con qué nota.
@@ -85,54 +117,7 @@ function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; pe
     );
   }
 
-  if (kind === 'llamada') {
-    return (
-      <Modal
-        title={`Registrar llamada con ${nombre}`}
-        onClose={onClose}
-        primaryLabel="Guardar llamada"
-        primaryDisabled={!a || !b || !nota.trim()}
-        onPrimary={() =>
-          done(
-            'llamada',
-            nota.trim() + (check ? ' · Se resolvió la señal.' : ''),
-            { resultado: `${a}`, destino: b },
-            { proximaFecha: fecha || null, estadoRevision: ps.estadoRevision === 'pendiente' ? 'en_revision' : ps.estadoRevision },
-            'Llamada registrada',
-          )
-        }
-      >
-        <Field label="Resultado de la llamada">
-          <select className={fieldCls} value={a} onChange={(e) => setA(e.target.value)}>
-            <option value="">Elegir resultado</option>
-            {RESULTADOS_LLAMADA.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Con quién hablaste">
-          <select className={fieldCls} value={b} onChange={(e) => setB(e.target.value)}>
-            <option value="">Elegir</option>
-            <option>La persona</option>
-            <option>Contacto de confianza</option>
-          </select>
-        </Field>
-        <Field label="Nota (obligatoria)">
-          <textarea className={fieldCls} rows={3} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Qué se conversó y qué se acordó" />
-        </Field>
-        <Field label="Próxima fecha de contacto">
-          <input type="datetime-local" className={fieldCls} value={fecha} onChange={(e) => setFecha(e.target.value)} />
-        </Field>
-        <label className="flex items-center gap-2 text-[14px] text-body">
-          <input type="checkbox" checked={check} onChange={(e) => setCheck(e.target.checked)} /> Se resolvió la señal
-        </label>
-        <p className="text-[12px] text-muted">Se guardará con tu nombre ({CURRENT_USER}), la fecha y hora actuales y la nota.</p>
-      </Modal>
-    );
-  }
-
   if (kind === 'derivar') {
-    const urgente = c === 'Hoy' || nivel === 3;
     return (
       <Modal
         title={`Derivar a ${nombre}`}
@@ -140,9 +125,10 @@ function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; pe
         primaryLabel="Derivar"
         primaryDisabled={!a || !b.trim() || !c || !nota.trim()}
         onPrimary={() =>
-          done('derivacion', `Motivo: ${b.trim()}. Urgencia: ${c}. ${nota.trim()}`, { destino: a }, { estadoRevision: 'derivado' }, 'Derivación registrada')
+          done('derivacion', `Derivó a ${a}. Motivo: ${b.trim()}. Urgencia: ${c}. ${nota.trim()}`, { destino: a }, { estadoRevision: 'derivado' }, 'Derivación registrada')
         }
       >
+        {alertaN3}
         <Field label="Destino">
           <select className={fieldCls} value={a} onChange={(e) => setA(e.target.value)}>
             <option value="">Elegir destino</option>
@@ -164,44 +150,127 @@ function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; pe
         <Field label="Nota (obligatoria)">
           <textarea className={fieldCls} rows={3} value={nota} onChange={(e) => setNota(e.target.value)} />
         </Field>
-        {urgente && <p className="rounded-[10px] bg-l3-bg px-3 py-2 text-[13px] text-l3-fg">{PROTOCOLO}</p>}
+      </Modal>
+    );
+  }
+
+  if (kind === 'contacto') {
+    const contacto = persona.contactoEmergencia?.trim();
+    const mensaje = `Hola, le escribe el equipo FARO. Queremos saber cómo está ${nombre}; le pedimos comunicarse con ella hoy. No compartimos información de salud.`;
+    return (
+      <Modal
+        title={`Avisar a contacto de confianza de ${nombre}`}
+        onClose={onClose}
+        primaryLabel="Enviar aviso (simulado)"
+        primaryDisabled={!contacto}
+        onPrimary={() => done('contacto', `Avisó a su contacto de confianza (${contacto}) con el mensaje mínimo. Envío simulado.`, { destino: contacto }, {}, 'Aviso simulado registrado')}
+      >
+        {alertaN3}
+        {contacto ? (
+          <>
+            <p className="text-[13px] text-body">Contacto autorizado: <b>{contacto}</b></p>
+            <Field label="Mensaje mínimo que se enviaría">
+              <p className="rounded-[10px] bg-surface-soft p-3 text-[13px] leading-[19px] text-body">{mensaje}</p>
+            </Field>
+            <p className="text-[12px] text-muted">Envío simulado: no sale ningún mensaje real.</p>
+          </>
+        ) : (
+          <p className="text-[13px] text-body">No hay contacto de confianza autorizado para esta persona; no se puede enviar el aviso.</p>
+        )}
+      </Modal>
+    );
+  }
+
+  if (kind === 'llamadaHumana') {
+    return (
+      <Modal
+        title={`Solicitar llamada humana para ${nombre}`}
+        onClose={onClose}
+        primaryLabel="Solicitar llamada"
+        primaryDisabled={!a || !nota.trim()}
+        onPrimary={() => done('llamada_humana', `Solicitó una llamada humana del equipo (${a}). ${nota.trim()}`, undefined, {}, 'Tarea de llamada creada para el equipo')}
+      >
+        <p className="text-[13px] leading-[19px] text-body">Se crea una tarea para que una persona del equipo llame. No llamas tú ahora.</p>
+        <Field label="Plazo">
+          <select className={fieldCls} value={a} onChange={(e) => setA(e.target.value)}>
+            <option value="">Elegir plazo</option>
+            <option>Hoy</option>
+            <option>Mañana</option>
+            <option>Esta semana</option>
+          </select>
+        </Field>
+        <Field label="Qué debe conversar el equipo (obligatorio)">
+          <textarea className={fieldCls} rows={3} value={nota} onChange={(e) => setNota(e.target.value)} />
+        </Field>
+      </Modal>
+    );
+  }
+
+  if (kind === 'frecuencia') {
+    const actual = ps.frecuencia;
+    return (
+      <Modal
+        title={`Ajustar frecuencia de llamadas automáticas · ${nombre}`}
+        onClose={onClose}
+        primaryLabel="Guardar frecuencia"
+        primaryDisabled={!a || a === actual}
+        onPrimary={() => done('frecuencia', `Ajustó la frecuencia de llamadas automáticas a ${a} (antes: ${actual}).`, undefined, { frecuencia: a as Frecuencia }, 'Frecuencia actualizada')}
+      >
+        <p className="text-[13px] text-body">Frecuencia actual: <b>{actual}</b> · Próxima llamada automática: {proximaLlamada(actual)}</p>
+        <Field label="Nueva frecuencia">
+          <select className={fieldCls} value={a} onChange={(e) => setA(e.target.value)}>
+            <option value="">Elegir</option>
+            {FRECUENCIAS.map((f) => (
+              <option key={f}>{f}</option>
+            ))}
+          </select>
+        </Field>
       </Modal>
     );
   }
 
   if (kind === 'cerrar') {
-    const bloqueado = nivel === 3 && !hayContacto && !confirmContacto;
+    const n3 = nivel === 3;
+    const revisada = reviewed.has(personaId);
+    const hayDeriv = ps.acciones.some((x) => x.tipo === 'derivacion');
+    const necesitaJustif = n3 && !hayDeriv;
+    const bloqueado = n3 && (!revisada || (necesitaJustif && !justif.trim()));
     return (
       <Modal
-        title={`Cerrar caso de ${nombre} con resultado`}
+        title={`Cerrar caso de ${nombre} con decisión`}
         onClose={onClose}
-        primaryLabel="Cerrar con resultado"
+        primaryLabel="Cerrar con decisión"
         primaryDisabled={!a || !nota.trim() || bloqueado}
         onPrimary={() =>
           done(
             'cierre',
-            nota.trim(),
+            `Cerró como ${a}. ${nota.trim()}${necesitaJustif ? ` Justificación sin derivación: ${justif.trim()}` : ''}`,
             { resultado: a },
             { estadoRevision: 'revisado', cierre: { resultado: a, fecha: new Date().toISOString(), autor: CURRENT_USER, nota: nota.trim() } },
-            'Caso cerrado con resultado',
+            'Caso cerrado con decisión',
           )
         }
       >
-        {nivel === 3 && (
-          <div className="rounded-[10px] bg-l3-bg px-3 py-2 text-[13px] leading-[19px] text-l3-fg">
-            <p>Situación urgente: cerrar el caso requiere haber contactado a la persona.</p>
-            {!hayContacto && (
-              <label className="mt-2 flex items-center gap-2">
-                <input type="checkbox" checked={confirmContacto} onChange={(e) => setConfirmContacto(e.target.checked)} />
-                Confirmo que ya contacté a {nombre}
-              </label>
+        {alertaN3}
+        {n3 && (
+          <div className="flex flex-col gap-2 rounded-[10px] border border-l3-fg/30 px-3 py-2 text-[13px] leading-[19px] text-body">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={revisada} disabled readOnly /> Revisé la transcripción de la llamada automática
+            </label>
+            {!revisada && (
+              <button type="button" onClick={() => open('transcripcion', personaId)} className="self-start rounded-full border border-ink px-3 py-1.5 text-[12px] font-semibold text-ink">
+                Revisar transcripción
+              </button>
             )}
+            <p className="text-[12px] text-muted">
+              {hayDeriv ? 'Ya hay una derivación registrada para este caso.' : 'Sin derivación registrada: escribe una justificación explícita o deriva antes de cerrar.'}
+            </p>
           </div>
         )}
-        <p className="text-[12px] text-muted">El nivel calculado se mantiene visible; el cierre queda registrado aparte.</p>
-        <Field label="Resultado">
+        <p className="text-[12px] text-muted">El nivel calculado se mantiene visible; la decisión queda registrada aparte.</p>
+        <Field label="Decisión">
           <select className={fieldCls} value={a} onChange={(e) => setA(e.target.value)}>
-            <option value="">Elegir resultado</option>
+            <option value="">Elegir decisión</option>
             {CIERRES.map((r) => (
               <option key={r}>{r}</option>
             ))}
@@ -210,6 +279,11 @@ function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; pe
         <Field label={a === 'Falsa alarma' ? 'Motivo de la falsa alarma (obligatorio)' : 'Nota (obligatoria)'}>
           <textarea className={fieldCls} rows={3} value={nota} onChange={(e) => setNota(e.target.value)} />
         </Field>
+        {necesitaJustif && (
+          <Field label="Justificación de cerrar sin derivar (obligatoria)">
+            <textarea className={fieldCls} rows={2} value={justif} onChange={(e) => setJustif(e.target.value)} />
+          </Field>
+        )}
       </Modal>
     );
   }
@@ -221,7 +295,7 @@ function ActionModal({ kind, personaId, onClose, toast }: { kind: ActionKind; pe
       onClose={onClose}
       primaryLabel="Pausar seguimiento"
       primaryDisabled={!nota.trim()}
-      onPrimary={() => done('pausa', nota.trim(), undefined, { pausado: true }, 'Seguimiento pausado')}
+      onPrimary={() => done('pausa', `Pausó el seguimiento. ${nota.trim()}`, undefined, { pausado: true }, 'Seguimiento pausado')}
     >
       <p className="text-[14px] leading-[21px] text-body">Las llamadas automáticas quedan en pausa hasta que alguien retome el seguimiento. Se registra quién lo pausó, cuándo y por qué.</p>
       <Field label="Motivo (obligatorio)">

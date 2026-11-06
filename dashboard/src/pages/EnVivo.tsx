@@ -132,7 +132,7 @@ export default function EnVivo() {
       {apiError && <div role="alert" className="rounded-[14px] bg-l1-bg p-3 text-[14px] text-l1-fg">No se pudo conectar con la API en vivo. Inicie: uv run uvicorn src.api.app:app --port 8000</div>}
       {aviso && <div className="rounded-[14px] bg-l1-bg p-3 text-[13px] text-l1-fg">{aviso}</div>}
       {urgencia && (
-        <div role="alert" className="flex w-full items-start gap-3 rounded-[14px] bg-l3-fg p-4 text-canvas">
+        <div role="alert" className="anim-slide-down anim-ring-l3 flex w-full items-start gap-3 rounded-[14px] bg-l3-fg p-4 text-canvas">
           <OctagonAlert className="mt-0.5 size-6 shrink-0" aria-hidden />
           <div>
             <p className="text-[16px] font-semibold">Activación simulada del protocolo — ruta por reglas, sin IA</p>
@@ -149,13 +149,13 @@ export default function EnVivo() {
           <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4" aria-live="polite">
             {msgs.length === 0 && <p className="text-[14px] text-muted">Inicie una llamada para ver la conversación en vivo.</p>}
             {msgs.map((m) => (
-              <div key={m.id} className={`flex ${m.rol === 'persona' ? 'justify-end' : 'justify-start'}`}>
+              <div key={m.id} className={`anim-bubble flex ${m.rol === 'persona' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-[16px] px-3.5 py-2.5 text-[14px] leading-snug ${m.rol === 'persona' ? 'bg-ink text-canvas' : 'bg-surface-strong text-body'}`}>
                   {m.texto}
                 </div>
               </div>
             ))}
-            {escuchando && <p className="flex items-center gap-2 text-[13px] text-muted"><Mic className="size-4 animate-pulse" aria-hidden />Escuchando…</p>}
+            {escuchando && <p className="anim-fade flex items-center gap-2 text-[13px] text-muted"><Mic className="size-4" aria-hidden />Escuchando<span className="typing-dots" aria-hidden><span /><span /><span /></span></p>}
             {terminada && <p className="text-center text-[13px] text-muted">Llamada terminada</p>}
             <div ref={endRef} />
           </div>
@@ -174,7 +174,7 @@ export default function EnVivo() {
         <div className="flex flex-col gap-5">
           <section className={`${card} p-5`}>
             <p className="text-[13px] font-semibold text-muted">Nivel de atención actual</p>
-            <div key={nivelPulse} className="mt-3 flex animate-[pulse_0.9s_ease-out_1] flex-col gap-2">
+            <div key={nivelPulse} className="anim-fade mt-3 flex flex-col gap-2">
               <LevelBadge level={nivel ?? 'na'} className="origin-left scale-150 self-start" />
               <p className="mt-3 text-[14px] text-body">{motivo ?? 'Aún sin información suficiente.'}</p>
             </div>
@@ -190,14 +190,14 @@ export default function EnVivo() {
                     {d.indicadores.map((i) => {
                       const o = obs[i.code];
                       return (
-                        <li key={i.code} className={`grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-[10px] px-2.5 py-1.5 text-[13px] transition-colors duration-700 ${flash[i.code] ? 'bg-l1-bg' : o ? 'bg-surface-soft' : ''}`}>
+                        <li key={i.code} className={`grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-[10px] px-2.5 py-1.5 text-[13px] transition-colors duration-700 ${flash[i.code] ? 'anim-flash bg-l1-bg' : o ? 'bg-surface-soft' : ''}`}>
                           <span className={o ? 'font-medium' : 'text-muted'}>{i.label}</span>
                           {o ? (
                             <span className="flex flex-wrap items-center justify-end gap-2">
                               <b>{formatValor(o.valor)}</b>
                               <span className="rounded-full bg-surface-strong px-2 py-0.5 text-[11px] text-body">{ESTADO_LABEL[o.estado] ?? o.estado}</span>
                               <span className="h-1.5 w-14 overflow-hidden rounded-full bg-hairline-soft" title={`confianza ${o.confianza ?? '—'}`}>
-                                <span className="block h-full bg-ink transition-all duration-500" style={{ width: `${Math.round((o.confianza ?? 0) * 100)}%` }} />
+                                <span className="anim-grow block h-full bg-ink transition-all duration-500" style={{ width: `${Math.round((o.confianza ?? 0) * 100)}%` }} />
                               </span>
                             </span>
                           ) : <span className="text-right text-muted">pendiente</span>}

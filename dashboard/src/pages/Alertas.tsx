@@ -47,7 +47,7 @@ function Lista({ open }: { open: ReturnType<typeof useOpenAlerts> }) {
           <Link
             key={r.p.id}
             to={`/alertas/${r.p.id}`}
-            className={`flex items-center gap-4 px-5 py-4 ${i > 0 ? 'border-t border-hairline-soft' : ''} ${r.level === 3 ? 'bg-l3-bg' : 'hover:bg-surface-soft'}`}
+            className={`row-link flex items-center gap-4 px-5 py-4 ${i > 0 ? 'border-t border-hairline-soft' : ''} ${r.level === 3 ? 'anim-ring-l3-inset bg-l3-bg' : ''}`}
           >
             <div className="flex w-[160px] shrink-0 flex-col">
               <span className="text-[15px] font-semibold text-ink">{r.p.nombre}</span>
@@ -60,7 +60,7 @@ function Lista({ open }: { open: ReturnType<typeof useOpenAlerts> }) {
             </div>
             <p className="min-w-0 flex-1 text-[13px] leading-[19px] text-body line-clamp-2">{r.explicacion}</p>
             <span className="w-[100px] shrink-0 text-[13px] text-body">{ESTADO[state.byId[r.p.id]?.estadoRevision ?? r.p.estadoRevision]}</span>
-            <span className="shrink-0 text-[13px] font-semibold text-ink">Revisar alerta</span>
+            <span className="shrink-0 text-[13px] font-semibold text-ink">Revisar <span className="row-chevron" aria-hidden>›</span></span>
           </Link>
         ))}
       </div>
@@ -111,10 +111,10 @@ function Detalle({ id }: { id: string }) {
       </div>
 
       {level === 3 && (
-        <div className="rounded-[14px] bg-l3-bg px-5 py-4 text-l3-fg">
-          <p className="text-[15px] font-bold">Situación urgente: seguir el protocolo</p>
+        <div className="anim-slide-down anim-ring-l3 rounded-[14px] bg-l3-bg px-5 py-4 text-l3-fg">
+          <p className="text-[15px] font-bold">Situación de riesgo · Activación simulada del protocolo</p>
           <p className="mt-1 text-[13px] leading-[19px]">
-            Contactar a {p.nombre} o a su contacto de confianza ahora y registrar el resultado. Activación simulada del protocolo: no se realizan llamadas reales.
+            Revisa la transcripción de la llamada automática y decide: derivar a una institución, avisar al contacto de confianza o solicitar una llamada humana del equipo.
           </p>
         </div>
       )}
@@ -145,7 +145,7 @@ function Detalle({ id }: { id: string }) {
               <div key={i} className="rounded-lg bg-surface-soft p-3">
                 <p className="text-[13px] leading-[19px] text-body">«{s.descripcion.slice(s.descripcion.indexOf(': ') + 2)}»</p>
                 <p className="mt-1 text-[11px] text-muted">
-                  Fuente: llamada simulada · {fechaCorta(s.fecha)} · {s.dominio.replace(/_/g, ' ')}
+                  Fuente: llamada automática · {fechaCorta(s.fecha)} · {s.dominio.replace(/_/g, ' ')}
                 </p>
               </div>
             ))}
@@ -153,26 +153,35 @@ function Detalle({ id }: { id: string }) {
         </div>
 
         <section className={`flex w-[340px] shrink-0 flex-col gap-3 p-5 ${card}`}>
-          <h2 className="text-[16px] font-semibold text-ink">Decisión</h2>
+          <h2 className="text-[16px] font-semibold text-ink">Tu decisión</h2>
           <p className="text-[13px] leading-[19px] text-body">Acción sugerida: {info?.accion ?? '—'}</p>
-          <p className="text-[12px] text-muted">Cada acción queda registrada con tu nombre, la fecha y una nota.</p>
+          <p className="text-[12px] text-muted">Cada decisión queda registrada con tu nombre, la fecha y una nota.</p>
           {!ps?.responsable && (
             <button type="button" onClick={() => open('asignar', p.id)} className="rounded-full border border-ink px-5 py-2.5 text-[14px] font-semibold text-ink">
               Asignarme
             </button>
           )}
-          <button type="button" onClick={() => open('llamada', p.id)} className="rounded-full bg-ink px-5 py-2.5 text-[14px] font-semibold text-white">
-            Registrar llamada
+          <button type="button" onClick={() => open('transcripcion', p.id)} className="rounded-full bg-ink px-5 py-2.5 text-[14px] font-semibold text-white">
+            Revisar transcripción
           </button>
           <button type="button" onClick={() => open('derivar', p.id)} className="rounded-full border border-ink px-5 py-2.5 text-[14px] font-semibold text-ink">
             Derivar
           </button>
+          <button type="button" onClick={() => open('contacto', p.id)} className="rounded-full border border-ink px-5 py-2.5 text-[14px] font-semibold text-ink">
+            Avisar a contacto de confianza
+          </button>
+          <button type="button" onClick={() => open('llamadaHumana', p.id)} className="rounded-full border border-ink px-5 py-2.5 text-[14px] font-semibold text-ink">
+            Solicitar llamada humana del equipo
+          </button>
+          <button type="button" onClick={() => open('frecuencia', p.id)} className="rounded-full border border-hairline px-5 py-2 text-[13px] font-semibold text-ink">
+            Ajustar frecuencia de llamadas automáticas
+          </button>
           <button type="button" onClick={() => open('cerrar', p.id)} className="rounded-full border border-ink px-5 py-2.5 text-[14px] font-semibold text-ink">
-            Cerrar con resultado
+            Cerrar con decisión
           </button>
           {ps && ps.acciones[0] && (
             <p className="border-t border-hairline-soft pt-3 text-[12px] text-muted">
-              Última acción: {ps.acciones[0].autor}, {fechaHora(ps.acciones[0].fecha)}
+              Última decisión: {ps.acciones[0].autor}, {fechaHora(ps.acciones[0].fecha)}
             </p>
           )}
           <Link to={`/personas/${p.id}`} className="text-[13px] text-muted underline">

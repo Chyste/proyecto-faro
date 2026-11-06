@@ -5,7 +5,8 @@ import type { EstadoRevision, Persona } from '../data/types';
 export const CURRENT_USER = 'Camila Rojas';
 const STORAGE_KEY = 'faro-demo-store-v1';
 
-export type TipoAccion = 'asignacion' | 'llamada' | 'derivacion' | 'cierre' | 'pausa';
+export type TipoAccion = 'asignacion' | 'derivacion' | 'contacto' | 'llamada_humana' | 'frecuencia' | 'cierre' | 'pausa';
+export type Frecuencia = 'diaria' | 'cada 2 días' | 'semanal';
 
 export interface AccionLog {
   id: string;
@@ -24,6 +25,7 @@ export interface PersonaState {
   proximaFecha: string | null;
   cierre: { resultado: string; fecha: string; autor: string; nota: string } | null;
   pausado: boolean;
+  frecuencia: Frecuencia;
 }
 
 export interface FaroState {
@@ -44,6 +46,7 @@ function seed(personas: Persona[]): FaroState {
       proximaFecha: null,
       cierre: null,
       pausado: false,
+      frecuencia: 'diaria',
     };
   }
   return { byId };
@@ -106,7 +109,7 @@ export function useFaro() {
 export function usePersonaState(id: string): PersonaState {
   const { state } = useFaro();
   return (
-    state.byId[id] ?? { responsable: null, estadoRevision: 'pendiente', acciones: [], proximaFecha: null, cierre: null, pausado: false }
+    state.byId[id] ?? { responsable: null, estadoRevision: 'pendiente', acciones: [], proximaFecha: null, cierre: null, pausado: false, frecuencia: 'diaria' }
   );
 }
 
@@ -116,13 +119,24 @@ export function newAccion(tipo: TipoAccion, nota: string, extra: Partial<AccionL
   return { id: `a-${Date.now()}-${counter}`, tipo, fecha: new Date().toISOString(), autor: CURRENT_USER, nota, ...extra };
 }
 
-export const TIPO_LABEL: Record<TipoAccion, string> = {
+export const TIPO_LABEL: Record<string, string> = {
   asignacion: 'Asignación',
-  llamada: 'Llamada registrada',
   derivacion: 'Derivación',
-  cierre: 'Cierre con resultado',
+  contacto: 'Aviso a contacto de confianza',
+  llamada_humana: 'Llamada humana solicitada',
+  frecuencia: 'Frecuencia de llamadas ajustada',
+  cierre: 'Cierre con decisión',
   pausa: 'Seguimiento pausado',
 };
+
+export const tipoLabel = (t: string) => TIPO_LABEL[t] ?? 'Decisión';
+
+/** Human decisions read as "Decisión de Camila Rojas: Derivó a CESFAM…". */
+export const decisionTexto = (a: AccionLog) => `Decisión de ${a.autor}: ${a.nota}`;
+
+export function proximaLlamada(f: Frecuencia): string {
+  return f === 'diaria' ? 'mañana 10:00' : f === 'cada 2 días' ? 'en 2 días, 10:00' : 'en 7 días, 10:00';
+}
 
 export function fechaHora(iso: string): string {
   const d = new Date(iso);

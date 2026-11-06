@@ -43,14 +43,14 @@ export default function Modal({ title, onClose, children, primaryLabel, onPrimar
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="anim-fade fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onKeyDown={onKeyDown}
-        className={`flex max-h-[90vh] w-full flex-col rounded-[16px] bg-canvas shadow-card ${wide ? 'max-w-[720px]' : 'max-w-[520px]'}`}
+        className={`anim-pop flex max-h-[90vh] w-full flex-col rounded-[16px] bg-canvas shadow-card ${wide ? 'max-w-[720px]' : 'max-w-[520px]'}`}
       >
         <div className="flex items-center gap-3 border-b border-hairline-soft px-6 py-4">
           <h2 className="flex-1 text-[18px] font-bold text-ink">{title}</h2>

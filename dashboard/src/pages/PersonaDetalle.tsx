@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { getPersonas } from '../data/syntheticData';
 import type { Control, Persona } from '../data/types';
 import { useActions } from '../components/actions/ActionModals';
-import { usePersonaState, fechaHora, TIPO_LABEL } from '../state/FaroStore';
+import { usePersonaState, fechaHora, tipoLabel, decisionTexto, proximaLlamada } from '../state/FaroStore';
 import LevelBadge from '../components/ui/LevelBadge';
 import DemoPill from '../components/ui/DemoPill';
 import {
@@ -164,8 +164,8 @@ export default function PersonaDetallePage() {
               {p.nombre} · {p.edad} años · {p.comuna}
             </h1>
             <p className="text-[13px] text-muted">
-              Responsable: {ps.responsable ? primerNombre(ps.responsable) : 'Sin asignar'} &nbsp;·&nbsp; Próximo contacto:{' '}
-              {ps.proximaFecha ? fechaHora(ps.proximaFecha) : '—'} &nbsp;·&nbsp; Revisión: {ESTADO_LABEL[ps.estadoRevision]}
+              Responsable: {ps.responsable ? primerNombre(ps.responsable) : 'Sin asignar'} &nbsp;·&nbsp; Próxima llamada automática:{' '}
+              {proximaLlamada(ps.frecuencia)} &nbsp;·&nbsp; Revisión: {ESTADO_LABEL[ps.estadoRevision]}
               {ps.pausado ? ' · Seguimiento pausado' : ''}
             </p>
           </div>
@@ -173,13 +173,13 @@ export default function PersonaDetallePage() {
             {!ps.responsable && <OutlineBtn onClick={() => open('asignar', p.id)}>Asignarme</OutlineBtn>}
             <button
               type="button"
-              onClick={() => open('llamada', p.id)}
+              onClick={() => open('transcripcion', p.id)}
               className="rounded-full bg-ink px-6 py-3 text-[14px] font-semibold whitespace-nowrap text-white"
             >
-              Registrar llamada
+              Revisar transcripción
             </button>
             <OutlineBtn onClick={() => open('derivar', p.id)}>Derivar</OutlineBtn>
-            <OutlineBtn onClick={() => open('cerrar', p.id)}>Cerrar con resultado</OutlineBtn>
+            <OutlineBtn onClick={() => open('cerrar', p.id)}>Cerrar con decisión</OutlineBtn>
           </div>
         </div>
         <hr className="border-hairline-soft" />
@@ -197,7 +197,13 @@ export default function PersonaDetallePage() {
             Cerrado como «{ps.cierre.resultado}» por {ps.cierre.autor} el {fechaHora(ps.cierre.fecha)}. Nota: {ps.cierre.nota} (el nivel calculado se mantiene).
           </p>
         )}
-        {nivelDe(p) === 3 && <p className="rounded-[10px] bg-l3-bg px-3 py-2 text-[13px] text-l3-fg">Activación simulada del protocolo: no se realizan llamadas reales.</p>}
+        {nivelDe(p) === 3 && <p className="anim-ring-l3 rounded-[10px] bg-l3-bg px-3 py-2 text-[13px] font-medium text-l3-fg">Situación de riesgo · Activación simulada del protocolo. Revisa la transcripción y decide.</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-medium text-muted">Más decisiones</span>
+          <OutlineBtn onClick={() => open('contacto', p.id)}>Avisar a contacto de confianza</OutlineBtn>
+          <OutlineBtn onClick={() => open('llamadaHumana', p.id)}>Solicitar llamada humana del equipo</OutlineBtn>
+          <OutlineBtn onClick={() => open('frecuencia', p.id)}>Ajustar frecuencia de llamadas automáticas</OutlineBtn>
+        </div>
       </section>
 
       <div role="tablist" className="flex flex-wrap gap-2">
@@ -229,7 +235,7 @@ export default function PersonaDetallePage() {
         <section className={`flex flex-col p-5 ${card}`}>
           <h2 className="mb-2 text-[16px] font-semibold text-ink">Preferencias y consentimiento</h2>
           <Row2 k="Horario preferido" v="—" />
-          <Row2 k="Canal" v="Llamada telefónica (simulada)" />
+          <Row2 k="Canal" v="Llamada automática de voz (simulada)" />
           <Row2 k="Consentimiento vigente" v={`Sí · registrado el ${fechaCorta(p.fechaRegistro)}`} />
           <Row2 k="Intereses" v={p.intereses?.join(', ')} />
           <div className="mt-3 flex items-center gap-3">
@@ -257,25 +263,23 @@ export default function PersonaDetallePage() {
       {tab === 'actividad' && (
         <section className={`flex flex-col gap-3 p-5 ${card}`}>
           <h2 className="text-[16px] font-semibold text-ink">Actividad</h2>
-          {ps.acciones.length === 0 && <p className="text-[13px] text-muted">Aún no hay acciones humanas registradas.</p>}
+          {ps.acciones.length === 0 && <p className="text-[13px] text-muted">Aún no hay decisiones humanas registradas.</p>}
           {ps.acciones.map((a) => (
             <div key={a.id} className="border-t border-hairline-soft pt-3 first:border-t-0 first:pt-0">
               <p className="text-[13px] font-semibold text-ink">
-                {TIPO_LABEL[a.tipo]}
+                {tipoLabel(a.tipo)}
                 {a.resultado ? ` · ${a.resultado}` : ''}
                 {a.destino ? ` · ${a.destino}` : ''}
               </p>
-              <p className="text-[12px] text-muted">
-                {a.autor} · {fechaHora(a.fecha)}
-              </p>
-              <p className="text-[13px] text-body">{a.nota}</p>
+              <p className="text-[12px] text-muted">{fechaHora(a.fecha)}</p>
+              <p className="text-[13px] text-body">{decisionTexto(a)}</p>
             </div>
           ))}
         </section>
       )}
 
       {tab === 'resumen' && (<>
-      <h2 className="text-[16px] font-semibold text-ink">Cinco dimensiones · última llamada, {fechaCorta(ultima)}</h2>
+      <h2 className="text-[16px] font-semibold text-ink">Cinco dimensiones · última llamada automática, {fechaCorta(ultima)}</h2>
       <div className="grid grid-cols-5 gap-4">
         {DIMS.map((d) => {
           const s = dimSummary(p, d, ultima);
@@ -288,7 +292,7 @@ export default function PersonaDetallePage() {
                 {s.quote ? `«${s.quote}»` : '—'}
               </div>
               <p className="text-[11px] leading-[14px] text-muted">
-                Fuente: llamada simulada{s.fuente ? ` · ${fechaCorta(s.fuente)}` : ''}
+                Fuente: llamada automática{s.fuente ? ` · ${fechaCorta(s.fuente)}` : ''}
               </p>
             </article>
           );
@@ -344,11 +348,11 @@ export default function PersonaDetallePage() {
         </section>
 
         <section className={`flex w-[400px] shrink-0 flex-col gap-3 p-5 ${card}`}>
-          <h2 className="text-[16px] font-semibold text-ink">Llamadas simuladas recientes</h2>
+          <h2 className="text-[16px] font-semibold text-ink">Llamadas automáticas recientes</h2>
           {recientes.map((c, i) => (
             <div key={c.id} className={`flex items-center gap-2.5 ${i > 0 ? 'border-t border-hairline-soft pt-3' : ''}`}>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-[13px] font-semibold text-ink">{fechaCorta(c.fecha)}</span>
+                <span className="text-[13px] font-semibold text-ink">{fechaCorta(c.fecha)} 10:00 · Llamada automática</span>
                 <span className="text-[12px] text-muted">
                   Completada · {c.duracion} min · {c.respuestas.length} respuestas
                 </span>
@@ -356,7 +360,7 @@ export default function PersonaDetallePage() {
               <LevelBadge level={NIVEL_TO_LEVEL[c.nivelResultante]} />
             </div>
           ))}
-          <p className="border-t border-hairline-soft pt-3 text-[12px] text-muted">Próxima: {ps.proximaFecha ? fechaHora(ps.proximaFecha) : '—'}</p>
+          <p className="border-t border-hairline-soft pt-3 text-[12px] text-muted">Próxima llamada automática: {proximaLlamada(ps.frecuencia)}</p>
         </section>
       </div>
       </>)}

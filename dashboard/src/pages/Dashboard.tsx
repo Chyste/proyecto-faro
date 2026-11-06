@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getPersonas } from '../data/syntheticData';
 import type { Persona } from '../data/types';
 import LevelBadge, { type LevelKey } from '../components/ui/LevelBadge';
 import DemoPill from '../components/ui/DemoPill';
 import { useActions } from '../components/actions/ActionModals';
 import { useFaro } from '../state/FaroStore';
+import { useCountUp } from '../lib/motion';
 import { diasEntre, fechaCorta, fechaHoy, fechaLarga, nivelDe, primerNombre } from '../lib/faro';
 
 type FilterKey = 'accion' | 'todos' | 'sinResp' | 'sinEval' | 'mis';
@@ -49,10 +50,11 @@ function buildRow(p: Persona, hoy: string, resp: string | null): Row {
 const priority = (r: Row) => (r.level === 'na' ? 2 : r.level) * 10 + (r.level === 'na' ? 5 : 0) + r.diasSin;
 
 function Counter({ n, caption, level, dashed, accent }: { n: number; caption: string; level: LevelKey; dashed?: boolean; accent?: boolean }) {
+  const shown = useCountUp(n);
   return (
     <div className={`flex flex-1 min-w-0 flex-col gap-2 p-4 ${card} ${dashed ? 'border-dashed border-muted' : ''}`}>
       <div className="flex items-end gap-2.5">
-        <span className={`text-[32px] font-bold leading-none ${accent ? 'text-l3-fg' : 'text-ink'}`}>{n}</span>
+        <span className={`text-[32px] font-bold leading-none tabular-nums ${accent ? 'text-l3-fg' : 'text-ink'}`}>{shown}</span>
         <span className="flex-1 text-[12px] leading-4 text-muted">{caption}</span>
       </div>
       <LevelBadge level={level} className="self-start" />
@@ -62,26 +64,51 @@ function Counter({ n, caption, level, dashed, accent }: { n: number; caption: st
 
 function Action({ row }: { row: Row }) {
   const { open } = useActions();
-  if (row.level === 3 || row.level === 2 || row.level === 'na') {
-    const primary = row.level === 3;
-    const asignar = !row.responsable;
+  const nav = useNavigate();
+  const stop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  if (row.level === 0) {
     return (
       <button
         type="button"
         onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          open(asignar ? 'asignar' : 'llamada', row.p.id);
+          stop(e);
+          nav(`/personas/${row.p.id}`);
         }}
-        className={`inline-flex rounded-full px-[18px] py-[9px] text-[13px] font-semibold whitespace-nowrap ${
-          primary ? 'bg-ink text-white' : 'border border-ink bg-canvas text-ink'
-        }`}
+        className="inline-flex rounded-full border border-hairline bg-canvas px-[18px] py-[9px] text-[13px] font-semibold whitespace-nowrap text-ink"
       >
-        {asignar ? 'Asignarme' : 'Registrar llamada'}
+        Ver ficha
       </button>
     );
   }
-  return <span className="text-[12px] leading-4 text-muted">Llamada automática de seguimiento</span>;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={(e) => {
+          stop(e);
+          open('transcripcion', row.p.id);
+        }}
+        className="inline-flex rounded-full bg-ink px-[18px] py-[9px] text-[13px] font-semibold whitespace-nowrap text-white"
+      >
+        Revisar
+      </button>
+      {!row.responsable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            stop(e);
+            open('asignar', row.p.id);
+          }}
+          className="inline-flex rounded-full border border-ink bg-canvas px-4 py-[9px] text-[13px] font-semibold whitespace-nowrap text-ink"
+        >
+          Asignarme
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -111,13 +138,13 @@ export default function Dashboard() {
         <div className="flex flex-1 flex-col gap-1">
           <h1 className="text-[28px] font-bold leading-tight text-ink">Hoy</h1>
           <p className="text-[14px] text-muted">
-            {fechaLarga(hoy)} · {rows.length} personas en seguimiento · Llamadas simuladas de hoy
+            {fechaLarga(hoy)} · {rows.length} personas en seguimiento · Llamadas automáticas de hoy
           </p>
         </div>
         <DemoPill />
       </div>
 
-      <div className="flex gap-4">
+      <div className="anim-stagger flex gap-4">
         <Counter n={count(3)} caption={cap(count(3), 'requiere acción ahora', 'sin personas')} level={3} accent={count(3) > 0} />
         <Counter n={count(2)} caption={cap(count(2), 'revisar hoy', 'sin personas')} level={2} />
         <Counter n={count(1)} caption="sin personas" level={1} />
@@ -145,17 +172,17 @@ export default function Dashboard() {
           <span className="w-[160px] shrink-0">Persona</span>
           <span className="w-[190px] shrink-0">Nivel de atención</span>
           <span className="w-[230px] shrink-0">Motivo principal</span>
-          <span className="w-[150px] shrink-0">Última conversación útil</span>
+          <span className="w-[150px] shrink-0">Última llamada automática</span>
           <span className="w-[90px] shrink-0">Responsable</span>
-          <span className="min-w-0 flex-1">Próxima acción</span>
+          <span className="min-w-0 flex-1">Acción</span>
         </div>
         {visible.length === 0 && <p className="px-5 py-8 text-[13px] text-muted">Sin personas para este filtro.</p>}
         {visible.map((r, i) => (
           <Link
             key={r.p.id}
             to={`/personas/${r.p.id}`}
-            className={`flex items-center gap-4 px-5 py-[22px] ${i > 0 ? 'border-t border-hairline-soft' : ''} ${
-              r.level === 3 ? 'bg-l3-bg' : 'bg-canvas hover:bg-surface-soft'
+            className={`row-link flex items-center gap-4 px-5 py-[22px] ${i > 0 ? 'border-t border-hairline-soft' : ''} ${
+              r.level === 3 ? 'anim-ring-l3-inset bg-l3-bg' : 'bg-canvas'
             }`}
           >
             <div className="flex w-[160px] shrink-0 flex-col gap-[3px]">
@@ -180,6 +207,7 @@ export default function Dashboard() {
             <div className="min-w-0 flex-1">
               <Action row={r} />
             </div>
+            <span className="row-chevron shrink-0 text-muted" aria-hidden>›</span>
           </Link>
         ))}
       </div>

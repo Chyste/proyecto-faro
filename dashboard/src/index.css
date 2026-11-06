@@ -77,3 +77,54 @@
 .recharts-tooltip-wrapper {
   outline: none !important;
 }
+
+/* ───────── FARO motion: subtle, purposeful, reduced-motion safe ───────── */
+@keyframes faro-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes faro-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes faro-pop { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes faro-drawer { from { transform: translateX(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes faro-toast { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes faro-slide-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+@keyframes faro-bubble { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes faro-flash { 0% { background-color: var(--color-l1-bg); box-shadow: 0 0 0 2px var(--color-l1-fg); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes faro-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes faro-ring { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 8px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes faro-ring-l3 { 0% { box-shadow: 0 0 0 0 rgba(193, 53, 21, 0.35); } 70% { box-shadow: 0 0 0 10px rgba(193, 53, 21, 0); } 100% { box-shadow: 0 0 0 0 rgba(193, 53, 21, 0); } }
+@keyframes faro-dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+.anim-rise { animation: faro-rise 220ms ease-out both; }
+.anim-fade { animation: faro-fade 180ms ease-out both; }
+.anim-pop { animation: faro-pop 180ms ease-out both; }
+.anim-drawer { animation: faro-drawer 240ms ease-out both; }
+.anim-toast { animation: faro-toast 200ms ease-out both; }
+.anim-slide-down { animation: faro-slide-down 240ms ease-out both; }
+.anim-bubble { animation: faro-bubble 200ms ease-out both; }
+.anim-flash { animation: faro-flash 1400ms ease-out both; }
+.anim-grow { transform-origin: left; animation: faro-grow 500ms ease-out both; }
+.anim-ring { animation: faro-ring 900ms ease-out 1; }
+/* Level 3: soft ring, max 2 iterations then static (no flashing). */
+.anim-ring-l3 { animation: faro-ring-l3 1600ms ease-out 2; }
+.anim-stagger > * { animation: faro-rise 220ms ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+.anim-stagger > *:nth-child(1) { --i: 0; } .anim-stagger > *:nth-child(2) { --i: 1; } .anim-stagger > *:nth-child(3) { --i: 2; }
+.anim-stagger > *:nth-child(4) { --i: 3; } .anim-stagger > *:nth-child(5) { --i: 4; } .anim-stagger > *:nth-child(n+6) { --i: 5; }
+
+.typing-dots { display: inline-flex; gap: 3px; align-items: center; }
+.typing-dots span { width: 5px; height: 5px; border-radius: 9999px; background: currentColor; animation: faro-dot 1.2s ease-in-out infinite; }
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+.row-link { transition: background-color 150ms ease-out; }
+.row-link:hover { background-color: var(--color-surface-soft); }
+.row-link .row-chevron { display: inline-block; transition: transform 150ms ease-out; }
+.row-link:hover .row-chevron { transform: translateX(2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@keyframes faro-ring-l3-inset { 0% { box-shadow: inset 0 0 0 0 rgba(193, 53, 21, 0.4); } 50% { box-shadow: inset 0 0 0 3px rgba(193, 53, 21, 0.25); } 100% { box-shadow: inset 0 0 0 0 rgba(193, 53, 21, 0); } }
+.anim-ring-l3-inset { animation: faro-ring-l3-inset 1600ms ease-out 2; }

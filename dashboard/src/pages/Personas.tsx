@@ -5,7 +5,7 @@ import type { Persona } from '../data/types';
 import LevelBadge, { type LevelKey } from '../components/ui/LevelBadge';
 import DemoPill from '../components/ui/DemoPill';
 import { fechaCorta, fechaHoy, nivelDe, primerNombre } from '../lib/faro';
-import { fechaHora, useFaro } from '../state/FaroStore';
+import { proximaLlamada, useFaro } from '../state/FaroStore';
 
 const card = 'rounded-[14px] border border-hairline-soft bg-canvas shadow-card';
 const ESTADO = { pendiente: 'Pendiente', en_revision: 'En revisión', revisado: 'Revisado', derivado: 'Derivado' } as const;
@@ -130,7 +130,7 @@ export default function PersonasPage() {
             <div
               key={p.id}
               onClick={() => navigate(`/personas/${p.id}`)}
-              className={`flex min-w-[1180px] cursor-pointer items-center gap-4 px-5 py-4 hover:bg-surface-soft ${i > 0 ? 'border-t border-hairline-soft' : ''}`}
+              className={`flex min-w-[1180px] cursor-pointer items-center gap-4 px-5 py-4 row-link ${i > 0 ? 'border-t border-hairline-soft' : ''}`}
             >
               <Link to={`/personas/${p.id}`} className="w-[150px] shrink-0 text-[15px] font-semibold text-ink hover:underline" onClick={(e) => e.stopPropagation()}>
                 {p.nombre} {p.apellido}
@@ -147,7 +147,7 @@ export default function PersonasPage() {
               <span className="w-[130px] shrink-0 text-[13px] text-body">{fechaCorta(p.fechaUltimoControl)}</span>
               <span className="w-[110px] shrink-0 text-[13px] text-body">{ESTADO[ps?.estadoRevision ?? p.estadoRevision]}</span>
               <span className="min-w-0 flex-1 text-[13px] text-body">
-                {ps?.proximaFecha ? `Contacto ${fechaHora(ps.proximaFecha)}` : l === 3 || l === 2 || l === 'na' ? 'Revisar hoy' : 'Llamada automática'}
+                {l === 3 || l === 2 || l === 'na' ? 'Revisar hoy' : `Próxima llamada automática: ${proximaLlamada(ps?.frecuencia ?? 'diaria')}`}
               </span>
             </div>
           );

@@ -7,7 +7,7 @@ const navItems = [
   { to: '/en-vivo', label: 'Llamada en vivo' },
   { to: '/alertas', label: 'Alertas' },
   { to: '/personas', label: 'Personas' },
-  { to: '/seguimiento', label: 'Seguimientos' },
+  { to: '/seguimiento', label: 'Llamadas y decisiones' },
   { to: '/geografico', label: 'Territorio' },
   { to: '/configuracion', label: 'Configuración' },
 ];
