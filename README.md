@@ -12,6 +12,8 @@ Detección temprana de riesgo (aislamiento, deterioro funcional, abandono de tra
 
 ## Estructura
 
+Diseño funcional del CRM y seguimiento por voz: [Etapa 3 · Diseño de FARO](docs/ETAPA_3_DISENO.md).
+
 ```
 .
 ├── README.md                  ← este archivo
