@@ -3,6 +3,40 @@
 Hackathon IA Aplicada, Congreso Social UC 2026, Desafío 1 "Envejecer con autonomía". Congelamiento del prototipo: 14:45.
 Todo lo de este documento fue verificado contra los datos reales y los libros de códigos, salvo lo marcado como "no verificado".
 
+## 0. Descarga
+
+Los datos crudos no se versionan (`.gitignore`). Para obtenerlos:
+
+```bash
+./scripts/descargar_datos.sh   # descarga todo a data/raw/{casen,censo}/ (~450 MB)
+```
+
+Enlaces directos (verificados el 2026-11-06):
+
+| Archivo | Destino | URL |
+|---|---|---|
+| `casen_2024.RData` | `data/raw/casen/` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/casen_2024.RData |
+| `casen_2024_provincia_comuna.dta` | `data/raw/casen/` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/casen_2024_provincia_comuna.dta |
+| `Libro_de_codigos_Casen_2024.xlsx` | `data/raw/casen/` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Libro_de_codigos_Casen_2024.xlsx |
+| `Libro_de_codigos_Casen_2024_prov_comuna.xlsx` | `data/raw/casen/` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Libro_de_codigos_Casen_2024_prov_comuna.xlsx |
+| `viv_hog_per_censo2024.zip` | `data/raw/censo/` | https://storage.googleapis.com/bktdescargascenso2024/viv_hog_per_censo2024.zip |
+
+Documentos (ya incluidos en el repo, en `docs/`):
+
+| Archivo | URL |
+|---|---|
+| Bases de la hackathon | (entregadas por la organización) |
+| `Dependencia_y_Cuidados_Casen2024.pdf` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Dependencia_y_Cuidados_Casen2024.pdf |
+| `Hogares_Unipersonales_Casen_2024.pdf` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Hogares_Unipersonales_Casen_2024.pdf |
+| `Cuestionario_Casen_2024.pdf` | https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Cuestionario_Casen_2024.pdf |
+| `manual_uso_microdatos_censo2024.pdf` | https://censo2024.ine.gob.cl/wp-content/uploads/2025/12/manual_uso_microdatos_censo2024.pdf |
+
+Páginas de origen: [CASEN 2024 (Observatorio Social)](https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen-2024) · [Censo 2024, resultados (INE)](https://censo2024.ine.gob.cl/resultados/)
+
+Otros recursos útiles no descargados aún:
+- `Personas_Mayores_Casen_2024.xlsx`: tabulados oficiales CASEN de personas mayores (posibles cifras para el pitch). https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Personas_Mayores_Casen_2024.xlsx
+- `Nota_uso_bases_de_datos_Casen_2024.pdf`: advertencias de uso de la base comunal. https://observatorio.ministeriodesarrollosocial.gob.cl/storage/docs/casen/2024/Nota_uso_bases_de_datos_Casen_2024.pdf
+
 ## 1. Inventario
 
 | Archivo | Fuente | Formato / tamaño | Etiqueta | Utilidad | Para qué sirve |

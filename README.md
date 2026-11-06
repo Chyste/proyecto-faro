@@ -37,6 +37,7 @@ Detección temprana de riesgo (aislamiento, deterioro funcional, abandono de tra
 ## Entorno
 
 ```bash
+./scripts/descargar_datos.sh   # descarga CASEN y Censo a data/raw/ (~450 MB, no versionados)
 uv sync            # instala dependencias
 uv run python ...  # ejecuta dentro del entorno
 ```
