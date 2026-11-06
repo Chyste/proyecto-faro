@@ -1,0 +1,102 @@
+{
+  "version": "faro-sintetico-v1",
+  "es_sintetico": true,
+  "fecha_inicio": "2026-10-23",
+  "fecha_fin": "2026-11-05",
+  "tablas": {
+    "dimension": 5,
+    "indicator": 16,
+    "staff_user": 2,
+    "person": 5,
+    "person_identity": 5,
+    "person_medication": 6,
+    "trusted_contact": 5,
+    "consent_record": 5,
+    "conversation": 70,
+    "message": 1541,
+    "extraction": 0,
+    "observation": 0,
+    "cusum_state": 0,
+    "assessment": 0,
+    "scenario_expectation": 736,
+    "alert": 0,
+    "alert_evidence": 0,
+    "intervention": 0
+  },
+  "estados_llamadas": {
+    "completada": 66,
+    "fallo_tecnico": 1,
+    "parcial": 1,
+    "rechazada": 1,
+    "sin_respuesta": 1
+  },
+  "niveles_esperados": {
+    "sin_evaluacion": 4,
+    "0": 43,
+    "1": 7,
+    "2": 12,
+    "3": 4
+  },
+  "integridad": {
+    "sqlite": "ok",
+    "errores_claves_foraneas": 0
+  },
+  "archivos": {
+    "faro_sintetico.db": {
+      "bytes": 335872,
+      "sha256": "71ee8bdf6329f242e9b91f659c370c89fc01ac499e0ca1b1ca999fc15685fe0c"
+    },
+    "faro_sintetico.sql": {
+      "bytes": 277355,
+      "sha256": "e608221419c528d274f8f4a5b31f6f7b4900a19e3cced6564cb548397655f8a8"
+    },
+    "conversaciones.db": {
+      "bytes": 118784,
+      "sha256": "d5b3ee2c6e15eee9eb5766b9bcca2d440aef0af36c47536778fdbebde38ec9b4"
+    },
+    "conversaciones.sql": {
+      "bytes": 96163,
+      "sha256": "b38cd7fb93245eeab2bbd5506af152885dcd3b212e4b37b64e1c3d56766225fd"
+    },
+    "personas.json": {
+      "bytes": 8264,
+      "sha256": "8c334abaa932eceab70a968dd2264cc5f09dd0c4a634f64f1daf3502dd13e0c2"
+    },
+    "equipo.json": {
+      "bytes": 165,
+      "sha256": "a00d879e7d475500a417bfd9f8ace64eadae340e3d6502fa91be29afce022514"
+    },
+    "catalogo.json": {
+      "bytes": 10086,
+      "sha256": "2cd84e4eae5ecfea4d97290a49aabc4011a2ea54b158434232065651028ed8e4"
+    },
+    "conversaciones.json": {
+      "bytes": 96329,
+      "sha256": "12c733e0c3e1d15a25cdf7a593989221039912ea6f977354d654872817b4d8b6"
+    },
+    "llamadas.jsonl": {
+      "bytes": 214710,
+      "sha256": "d45944a3c6fdf0fa635dffcdca988cc1608ced81baf22602bff244c7e7c63bc8"
+    },
+    "esperados.jsonl": {
+      "bytes": 130974,
+      "sha256": "fa92b640b05913a9aaac05f566e56bd9ec1041b80e0c1dc0b6286625d32b921e"
+    },
+    "observaciones.jsonl": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "parametros_demo.json": {
+      "bytes": 2150,
+      "sha256": "bc4a586bb46a9cb9d75f231701067a7202d82d7919ca933649a0809bd89a216c"
+    },
+    "modelo_metadata.json": {
+      "bytes": 390,
+      "sha256": "c23df278600ecff49f5ef2c6025354ccf9b778b56576b122265be665672b5e6e"
+    },
+    "README.md": {
+      "bytes": 4055,
+      "sha256": "2f78103eb79c6909ce78a07a3bc85c2b04f717686b52acc545f99d123a04bdd3"
+    }
+  }
+}

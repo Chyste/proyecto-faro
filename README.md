@@ -56,7 +56,15 @@ uv run python -m src.db --db data/processed/faro.db
 uv run pytest -q
 ```
 
-El comando crea el esquema, cinco dimensiones, 17 indicadores y cinco personas ficticias con 70 conversaciones. Si ya hay personas, conserva los datos existentes. Las observaciones, alertas y resultados CUSUM quedan vacíos hasta implementar el procesamiento.
+El comando crea el esquema, cinco dimensiones, 16 indicadores y cinco personas ficticias con 70 intentos de conversación. Si ya hay personas, conserva los datos existentes. Las observaciones, alertas y resultados CUSUM quedan vacíos hasta implementar el procesamiento.
+
+Para generar las dos bases sintéticas, los archivos de intercambio y un ZIP completo:
+
+```bash
+uv run python -m src.db.export --archive outputs/faro_datos_sinteticos.zip
+```
+
+Los archivos se crean en `data/synthetic/`: `faro_sintetico.db` contiene el modelo completo y `conversaciones.db` contiene una tabla `conversaciones(id, conversacion)`. Incluyen perfiles, catálogo, parámetros y anotaciones esperadas para 14 días. La [guía del paquete](data/synthetic/README.md) explica cada archivo. Esta generación es independiente de la base operativa existente.
 
 ## Horarios críticos (6 nov 2026)
 

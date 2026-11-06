@@ -1,0 +1,18 @@
+{
+  "estado": "pendiente",
+  "version": null,
+  "fuentes_previstas": [
+    "CASEN 2024",
+    "Censo 2024"
+  ],
+  "objetivo": "dependencia funcional sin cuidador dentro del hogar",
+  "coeficientes": null,
+  "metricas": null,
+  "ajustado_con_estos_sinteticos": false,
+  "cusum": {
+    "estado": "pendiente",
+    "dias_base_propuestos": 7,
+    "k": null,
+    "h": null
+  }
+}

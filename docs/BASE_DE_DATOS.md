@@ -22,6 +22,18 @@ uv run python -m src.db --db data/processed/faro.db --reset
 
 `--start-date AAAA-MM-DD` permite cambiar el inicio de una carga nueva; por defecto es `2026-10-23`.
 
+### Paquete sintético para el MVP
+
+```bash
+uv run python -m src.db.export --archive outputs/faro_datos_sinteticos.zip
+```
+
+Genera una base completa nueva en `data/synthetic/faro_sintetico.db` y otra en `data/synthetic/conversaciones.db`, cuya única tabla es `conversaciones(id, conversacion)`. Los IDs coinciden con `conversation.id` de la base completa. Se incluyen los 70 intentos; el texto del fallo técnico es vacío y el de sin respuesta solo contiene al asistente.
+
+También genera SQL para reconstruir ambas bases, perfiles, equipo, catálogo con preguntas y valores permitidos, parámetros, llamadas, transcripciones y anotaciones en JSON/JSONL. `esperados.jsonl` contiene los 16 indicadores por intento, con tipo JSON, estado del dato y cita literal. Un indicador no preguntado conserva `null` y `no_preguntado`. `manifest.json` registra conteos, integridad y hashes; `modelo_metadata.json` conserva el estado pendiente del modelo. Véase la [guía del paquete](../data/synthetic/README.md).
+
+La generación usa una base temporal en memoria y no modifica `data/processed/faro.db`. Opciones: `--output-dir` y `--start-date`. El dataset es reproducible, con offset fijo de demostración `-03:00`. `observaciones.jsonl` y las tablas de procesamiento se entregan vacíos: las anotaciones esperadas no se presentan como resultados de un extractor ni de un motor de reglas.
+
 ## Datos y relaciones disponibles
 
 | Área | Tablas | Uso |
@@ -46,13 +58,13 @@ La carga incluye dos funcionarios, cinco contactos, cinco consentimientos, seis 
 
 | Persona ficticia | Escenario | Niveles esperados |
 |---|---|---|
-| Rosa | Días 1–7 estables; 8–11 menor contacto, soledad y barrera de acceso a medicamentos; 12 aún con señales (la acción se registra en vivo en la demo); 13–14 mejora | 0, luego 1 y 2, después 1 y 0 |
+| Rosa | Días 1–7 estables; 8–11 menor contacto, soledad y barrera de acceso a medicamentos; 12 aún con señales (la acción se registra en vivo en la demo); 13–14 mejora | 0, luego 1 y 2; conserva 2 mientras persiste la ventana de cinco días |
 | Carlos | Vive solo, se siente acompañado y mantiene actividades | 0 todos los días |
-| Elena | Sin tratamiento (adherencia `no_aplica`); tristeza ocasional el día 6 | 0 y 1 el día 6 |
+| Elena | Sin tratamiento (adherencia `no_aplica`); tristeza ocasional el día 6; llamada parcial el día 9 y rechazada el 10 | 0 y 1 el día 6; `NULL` los días 9–10 por información insuficiente |
 | Miguel | Confusión nueva los días 5, 7 y 8; fallo técnico el día 10 y sin respuesta el 11 | 1 y 2; sin evaluar (`NULL`) en los intentos fallidos |
 | Teresa | Empeoramiento de autonomía los días 6–9; caída con lesión y petición de ayuda el día 11; recuperación con apoyo familiar | 2, luego 3 hasta la resolución humana |
 
-`scenario_expectation` tiene una fila por conversación con `indicator_code` nulo (nivel esperado; `NULL` significa sin evaluar) y una fila por indicador preguntado (`expected_value` como texto; si la respuesta fue nula, el motivo queda en `note`). Hay respuestas `no_sabe` y `prefiere_no_responder` anotadas. Los niveles de Rosa de los días 13–14 siguen la narrativa de la demo, no una ventana estricta de cinco días.
+`scenario_expectation` tiene una fila por conversación con `indicator_code` nulo (nivel esperado; `NULL` significa sin evaluar) y una fila por indicador preguntado (`expected_value` como texto; si la respuesta fue nula, el motivo queda en `note`). Hay respuestas `no_sabe`, `prefiere_no_responder` y `no_comprendido` anotadas. Los niveles de Rosa de los días 13–14 conservan el nivel 2 según la ventana de persistencia de cinco días. Las llamadas respetan las preferencias de mañana (10:00) o tarde (16:00). El cierre del guion urgente identifica la activación simulada del protocolo.
 
 La carga no genera observaciones, evaluaciones ni alertas. `is_urgent_trigger` identifica indicadores candidatos (`lesion_reportada`, `sintoma_agudo_protocolo`, `necesita_ayuda_inmediata`): no activa por sí solo un nivel 3. La caída sin lesión corresponde a nivel 2 según el contrato.
 
@@ -82,4 +94,4 @@ finally:
 
 [Parámetros y simulación](MVP_PARAMETROS_Y_SIMULACION.md) define el contrato; el catálogo, la ficha y las cinco personas coinciden con él.
 
-Pendientes: extracción de indicadores, motor de reglas y escritura de `assessment`, detector de palabras de urgencia, CUSUM, modo de reproducción (carga de observaciones con fuente `reproduccion`), dashboard y control de acceso por rol. Los archivos JSON/JSONL propuestos en el contrato no se generan; las conversaciones y anotaciones se guardan en SQLite.
+Pendientes: extracción de indicadores, motor de reglas y escritura de `assessment`, detector de palabras de urgencia, CUSUM, modo de reproducción (carga de observaciones con fuente `reproduccion`), dashboard y control de acceso por rol. El paquete exporta los JSON/JSONL propuestos en el contrato; `observaciones.jsonl` queda vacío hasta disponer de salidas efectivas.

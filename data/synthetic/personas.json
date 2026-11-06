@@ -1,0 +1,318 @@
+[
+  {
+    "id": 1,
+    "preferred_name": "Rosa",
+    "age": 79,
+    "comuna_cut": 13129,
+    "comuna_nombre": "San Joaquín",
+    "sexo_modelo": "mujer",
+    "area": "urbana",
+    "escolaridad_anios": 8,
+    "discapacidad_wg": "no",
+    "vive_sola": "si",
+    "autonomia_base": "Camina sola por el barrio, cocina y se asea sin ayuda.",
+    "red_apoyo_base": "Hija Marta la llama a diario; una vecina la visita a veces.",
+    "tiene_tratamiento": "si",
+    "horario_preferido": "mañana",
+    "intereses": [
+      "jardín",
+      "radio",
+      "tejido"
+    ],
+    "priority": "alta",
+    "assigned_to": 1,
+    "status": "activa",
+    "is_synthetic": true,
+    "identidad_ficticia": {
+      "person_id": 1,
+      "full_name": "Rosa Ficticia Soto",
+      "phone": "+56 9 0000 0001",
+      "address": "Calle Ficticia 100, San Joaquín"
+    },
+    "medicamentos": [
+      {
+        "id": 1,
+        "person_id": 1,
+        "name": "Losartán 50 mg",
+        "source": "declarado en la ficha",
+        "verified_at": "2026-10-22"
+      },
+      {
+        "id": 2,
+        "person_id": 1,
+        "name": "Metformina 850 mg",
+        "source": "declarado en la ficha",
+        "verified_at": "2026-10-22"
+      }
+    ],
+    "contactos": [
+      {
+        "id": 1,
+        "person_id": 1,
+        "name": "Marta Soto",
+        "relation": "hija",
+        "phone": "+56 9 0000 0011",
+        "notify_allowed": 1
+      }
+    ],
+    "consentimientos": [
+      {
+        "id": 1,
+        "person_id": 1,
+        "text_version": "v1-demo",
+        "scope_checkin": 1,
+        "scope_sensitive": 1,
+        "scope_third_party": 1,
+        "granted_at": "2026-10-22T09:00:00-03:00",
+        "revoked_at": null
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "preferred_name": "Carlos",
+    "age": 74,
+    "comuna_cut": 13129,
+    "comuna_nombre": "San Joaquín",
+    "sexo_modelo": "hombre",
+    "area": "urbana",
+    "escolaridad_anios": 12,
+    "discapacidad_wg": "no",
+    "vive_sola": "si",
+    "autonomia_base": "Independiente: sale a comprar, cocina y camina a diario.",
+    "red_apoyo_base": "Hijo Andrés lo visita los fines de semana; participa en un club de adulto mayor.",
+    "tiene_tratamiento": "si",
+    "horario_preferido": "tarde",
+    "intereses": [
+      "fútbol",
+      "ajedrez",
+      "noticias"
+    ],
+    "priority": "baja",
+    "assigned_to": 1,
+    "status": "activa",
+    "is_synthetic": true,
+    "identidad_ficticia": {
+      "person_id": 2,
+      "full_name": "Carlos Ficticio Pérez",
+      "phone": "+56 9 0000 0002",
+      "address": "Calle Ficticia 101, San Joaquín"
+    },
+    "medicamentos": [
+      {
+        "id": 3,
+        "person_id": 2,
+        "name": "Enalapril 10 mg",
+        "source": "declarado en la ficha",
+        "verified_at": "2026-10-22"
+      }
+    ],
+    "contactos": [
+      {
+        "id": 2,
+        "person_id": 2,
+        "name": "Andrés Pérez",
+        "relation": "hijo",
+        "phone": "+56 9 0000 0012",
+        "notify_allowed": 1
+      }
+    ],
+    "consentimientos": [
+      {
+        "id": 2,
+        "person_id": 2,
+        "text_version": "v1-demo",
+        "scope_checkin": 1,
+        "scope_sensitive": 1,
+        "scope_third_party": 1,
+        "granted_at": "2026-10-22T09:00:00-03:00",
+        "revoked_at": null
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "preferred_name": "Elena",
+    "age": 81,
+    "comuna_cut": 13129,
+    "comuna_nombre": "San Joaquín",
+    "sexo_modelo": "mujer",
+    "area": "urbana",
+    "escolaridad_anios": 6,
+    "discapacidad_wg": "no",
+    "vive_sola": "si",
+    "autonomia_base": "Se maneja sola en casa; usa bastón en la calle.",
+    "red_apoyo_base": "Sobrino Rodrigo y su vecina Julia la acompañan seguido.",
+    "tiene_tratamiento": "no",
+    "horario_preferido": "mañana",
+    "intereses": [
+      "novelas",
+      "cocina",
+      "música"
+    ],
+    "priority": "media",
+    "assigned_to": 1,
+    "status": "activa",
+    "is_synthetic": true,
+    "identidad_ficticia": {
+      "person_id": 3,
+      "full_name": "Elena Ficticia Lagos",
+      "phone": "+56 9 0000 0003",
+      "address": "Calle Ficticia 102, San Joaquín"
+    },
+    "medicamentos": [],
+    "contactos": [
+      {
+        "id": 3,
+        "person_id": 3,
+        "name": "Rodrigo Lagos",
+        "relation": "sobrino",
+        "phone": "+56 9 0000 0013",
+        "notify_allowed": 1
+      }
+    ],
+    "consentimientos": [
+      {
+        "id": 3,
+        "person_id": 3,
+        "text_version": "v1-demo",
+        "scope_checkin": 1,
+        "scope_sensitive": 1,
+        "scope_third_party": 1,
+        "granted_at": "2026-10-22T09:00:00-03:00",
+        "revoked_at": null
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "preferred_name": "Miguel",
+    "age": 77,
+    "comuna_cut": 13129,
+    "comuna_nombre": "San Joaquín",
+    "sexo_modelo": "hombre",
+    "area": "urbana",
+    "escolaridad_anios": 10,
+    "discapacidad_wg": "no",
+    "vive_sola": "no",
+    "autonomia_base": "Autónomo; su esposa lo acompaña en los trámites.",
+    "red_apoyo_base": "Vive con su esposa Ana; su hija lo llama los domingos.",
+    "tiene_tratamiento": "si",
+    "horario_preferido": "tarde",
+    "intereses": [
+      "pesca",
+      "radio",
+      "dominó"
+    ],
+    "priority": "media",
+    "assigned_to": 1,
+    "status": "activa",
+    "is_synthetic": true,
+    "identidad_ficticia": {
+      "person_id": 4,
+      "full_name": "Miguel Ficticio Mora",
+      "phone": "+56 9 0000 0004",
+      "address": "Calle Ficticia 103, San Joaquín"
+    },
+    "medicamentos": [
+      {
+        "id": 4,
+        "person_id": 4,
+        "name": "Atorvastatina 20 mg",
+        "source": "declarado en la ficha",
+        "verified_at": "2026-10-22"
+      }
+    ],
+    "contactos": [
+      {
+        "id": 4,
+        "person_id": 4,
+        "name": "Ana Mora",
+        "relation": "esposa",
+        "phone": "+56 9 0000 0014",
+        "notify_allowed": 1
+      }
+    ],
+    "consentimientos": [
+      {
+        "id": 4,
+        "person_id": 4,
+        "text_version": "v1-demo",
+        "scope_checkin": 1,
+        "scope_sensitive": 1,
+        "scope_third_party": 1,
+        "granted_at": "2026-10-22T09:00:00-03:00",
+        "revoked_at": null
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "preferred_name": "Teresa",
+    "age": 83,
+    "comuna_cut": 13129,
+    "comuna_nombre": "San Joaquín",
+    "sexo_modelo": "mujer",
+    "area": "urbana",
+    "escolaridad_anios": 5,
+    "discapacidad_wg": "si",
+    "vive_sola": "si",
+    "autonomia_base": "Se desplaza con apoyo de bastón; prepara sus comidas.",
+    "red_apoyo_base": "Nieta Paola la visita dos veces por semana; hija Carolina la llama.",
+    "tiene_tratamiento": "si",
+    "horario_preferido": "mañana",
+    "intereses": [
+      "telenovelas",
+      "bordado",
+      "rezar el rosario"
+    ],
+    "priority": "alta",
+    "assigned_to": 1,
+    "status": "activa",
+    "is_synthetic": true,
+    "identidad_ficticia": {
+      "person_id": 5,
+      "full_name": "Teresa Ficticia Vera",
+      "phone": "+56 9 0000 0005",
+      "address": "Calle Ficticia 104, San Joaquín"
+    },
+    "medicamentos": [
+      {
+        "id": 5,
+        "person_id": 5,
+        "name": "Amlodipino 5 mg",
+        "source": "declarado en la ficha",
+        "verified_at": "2026-10-22"
+      },
+      {
+        "id": 6,
+        "person_id": 5,
+        "name": "Paracetamol 500 mg",
+        "source": "declarado en la ficha",
+        "verified_at": "2026-10-22"
+      }
+    ],
+    "contactos": [
+      {
+        "id": 5,
+        "person_id": 5,
+        "name": "Paola Vera",
+        "relation": "nieta",
+        "phone": "+56 9 0000 0015",
+        "notify_allowed": 1
+      }
+    ],
+    "consentimientos": [
+      {
+        "id": 5,
+        "person_id": 5,
+        "text_version": "v1-demo",
+        "scope_checkin": 1,
+        "scope_sensitive": 1,
+        "scope_third_party": 1,
+        "granted_at": "2026-10-22T09:00:00-03:00",
+        "revoked_at": null
+      }
+    ]
+  }
+]

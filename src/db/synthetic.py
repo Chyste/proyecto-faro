@@ -160,6 +160,12 @@ def _carlos(d: int) -> DayPlan:
 
 
 def _elena(d: int) -> DayPlan:
+    if d == 9:
+        return DayPlan("parcial", {"animo_reportado": Missing("no_comprendido"),
+                                  "necesita_ayuda_inmediata": False},
+                       note="Llamada interrumpida; no comprendió la pregunta de ánimo. Información insuficiente para evaluar.")
+    if d == 10:
+        return DayPlan("rechazada", note="Prefiere no conversar hoy; no se inventan indicadores ni nivel.")
     f = _facts(adherencia_reportada="no_aplica", tristeza_reportada="no")
     if d == 6:
         f.update(tristeza_reportada="ocasional", animo_reportado="regular")
@@ -233,8 +239,8 @@ GOODBYES = (
 UNANSWERED = "Hola {n}, soy el asistente automático del programa de acompañamiento. ¿Me escucha?"
 
 QUESTIONS = {
-    "soledad_percibida": ("¿Se ha sentido sola o solo estos días?", "¿Ha sentido soledad últimamente?",
-                          "¿Cómo se ha sentido de compañía estos días?"),
+    "soledad_percibida": ("¿Se ha sentido sola o solo desde ayer?", "¿Ha sentido soledad desde ayer?",
+                          "¿Cómo se ha sentido de compañía en las últimas 24 horas?"),
     "contacto_social_24h": ("¿Conversó con alguien desde ayer?", "¿Ha hablado con algún familiar o vecino desde ayer?",
                             "¿Alguien la o lo pasó a ver o llamó desde ayer?"),
     "menor_contacto_habitual": ("¿Ha tenido menos contacto con la gente que de costumbre?",
@@ -249,7 +255,7 @@ QUESTIONS = {
                              "¿Cómo va con sus remedios, los ha tomado?"),
     "barrera_tratamiento": ("¿Hay algo que le haya impedido tomar sus remedios?", "¿Qué le ha dificultado seguir con su tratamiento?"),
     "animo_reportado": ("¿Cómo ha estado de ánimo hoy?", "¿Cómo se siente de ánimo esta mañana?"),
-    "tristeza_reportada": ("¿Ha sentido tristeza estos días?", "¿Se ha sentido triste últimamente?"),
+    "tristeza_reportada": ("¿Ha sentido tristeza desde ayer?", "¿Se ha sentido triste en las últimas 24 horas?"),
     "confusion_nueva_reportada": ("¿Ha sentido confusión nueva, algo que antes no le pasaba?",
                                   "¿Le ha pasado de sentirse confundida o confundido de una forma distinta a lo normal?"),
     "caida_reportada": ("¿Se ha caído desde ayer?", "¿Tuvo alguna caída desde la última vez que hablamos?"),
@@ -325,6 +331,8 @@ def _key(value) -> str:
 def _reply(plan: DayPlan, code: str, value, idx: int, day: int, k: int) -> str:
     if code in plan.replies:
         return plan.replies[code]
+    if code == "adherencia_reportada" and value == "parcial" and plan.facts.get("barrera_tratamiento") == ["acceso"]:
+        return "Pude tomar solo algunos; me faltan los que no he podido retirar."
     pool = MISSING_REPLIES[value.reason] if isinstance(value, Missing) else REPLIES[(code, _key(value))]
     return pool[(day + idx + k) % len(pool)]
 
@@ -345,6 +353,12 @@ def _script(spec: PersonSpec, idx: int, day: int, plan: DayPlan) -> list[tuple[s
         ("asistente", None, INTROS[(day + idx) % len(INTROS)].format(n=n)),
         ("persona", None, CONFIRMS[(day + idx) % len(CONFIRMS)].format(n=n)),
     ]
+    if plan.status == "rechazada":
+        return turns + [
+            ("asistente", None, "¿Le acomoda conversar un momento sobre cómo ha estado?"),
+            ("persona", None, "Hoy prefiero no conversar, gracias. Otro día puede ser."),
+            ("asistente", None, "De acuerdo, respetamos su decisión. Que esté muy bien."),
+        ]
     codes = [c for c in ASK_ORDER if c in plan.facts]
     for k, code in enumerate(codes):
         pool = QUESTIONS[code]
@@ -353,7 +367,20 @@ def _script(spec: PersonSpec, idx: int, day: int, plan: DayPlan) -> list[tuple[s
             text = OPENERS[(day + idx) % len(OPENERS)] + text
         turns.append(("asistente", code, text))
         turns.append(("persona", None, _reply(plan, code, plan.facts[code], idx, day, k)))
-    turns.append(("asistente", None, GOODBYES[(day + idx) % len(GOODBYES)].format(n=n)))
+    if plan.urgent:
+        closing = "En esta demostración se registra la activación simulada del protocolo de ayuda inmediata y el aviso al equipo responsable."
+    elif plan.status == "parcial":
+        turns.extend([
+            ("asistente", None, "¿Podemos continuar con las otras preguntas?"),
+            ("persona", None, "Disculpe, tengo que cortar ahora. Seguimos otro día."),
+        ])
+        closing = "De acuerdo, dejamos las preguntas pendientes para otro momento. Gracias por conversar."
+    else:
+        closing = GOODBYES[(day + idx) % len(GOODBYES)].format(n=n)
+    turns.append(("asistente", None, closing))
+    if spec.horario == "tarde":
+        turns = [(role, code, text.replace("Buenos días", "Buenas tardes").replace("buenos días", "buenas tardes")
+                  .replace("buen día", "buenas tardes").replace("esta mañana", "hoy")) for role, code, text in turns]
     return turns
 
 
@@ -390,15 +417,16 @@ def _insert_person(conn, spec: PersonSpec, idx: int, monitor: int, granted: date
 def _insert_day(conn, spec: PersonSpec, idx: int, pid: int, day: int, when: date) -> None:
     plan = PLANS[spec.name](day)
     answered = plan.status in ("completada", "parcial")
-    purge = (when + timedelta(days=30)).isoformat() + "T10:00:00" + TZ
+    hour = "16:00:00" if spec.horario == "tarde" else "10:00:00"
+    purge = (when + timedelta(days=30)).isoformat() + "T" + hour + TZ
     urgent_type, urgent_quote = plan.urgent or (None, None)
     cid = conn.execute(
         "INSERT INTO conversation (person_id, channel, started_at, status, speaker_confirmed, transcript_purge_at,"
         " scenario_id, urgent_event_type, urgent_event_quote) VALUES (?, 'simulado', ?, ?, ?, ?, ?, ?, ?)",
-        (pid, f"{when.isoformat()}T10:00:00{TZ}", plan.status, int(answered), purge, spec.scenario_id,
+        (pid, f"{when.isoformat()}T{hour}{TZ}", plan.status, int(answered or plan.status == "rechazada"), purge, spec.scenario_id,
          urgent_type, urgent_quote),
     ).lastrowid
-    if answered:
+    if answered or plan.status == "rechazada":
         turns = _script(spec, idx, day, plan)
     elif plan.status == "sin_respuesta":
         turns = [("asistente", None, UNANSWERED.format(n=spec.name))]

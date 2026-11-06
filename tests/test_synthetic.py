@@ -87,7 +87,32 @@ def test_profiles(conn):
 
 def test_statuses(conn):
     seen = {r[0] for r in conn.execute("SELECT DISTINCT status FROM conversation")}
-    assert {"completada", "sin_respuesta", "fallo_tecnico"} <= seen
+    assert {"completada", "parcial", "rechazada", "sin_respuesta", "fallo_tecnico"} == seen
+
+
+def test_partial_and_refused_calls_do_not_invent_health_answers(conn):
+    partial = _conv(conn, "Elena", 9)
+    rejected = _conv(conn, "Elena", 10)
+    assert partial["status"] == "parcial" and _level(conn, "Elena", 9) is None
+    assert rejected["status"] == "rechazada" and _level(conn, "Elena", 10) is None
+    assert _expected(conn, "Elena", 9, "animo_reportado")["note"] == "no_comprendido"
+    assert conn.execute(
+        "SELECT count(*) FROM scenario_expectation WHERE conversation_id=? AND indicator_code IS NOT NULL",
+        (rejected["id"],),
+    ).fetchone()[0] == 0
+
+
+def test_preferred_schedule_and_urgent_closing(conn):
+    for row in conn.execute(
+        "SELECT p.horario_preferido, c.started_at FROM conversation c JOIN person p ON p.id=c.person_id"
+    ):
+        hour = int(row["started_at"][11:13])
+        assert hour >= 12 if row["horario_preferido"] == "tarde" else hour < 12
+    urgent = _conv(conn, "Teresa", 11)
+    last = conn.execute(
+        "SELECT text FROM message WHERE conversation_id=? ORDER BY turn DESC LIMIT 1", (urgent["id"],)
+    ).fetchone()[0]
+    assert "simulada" in last.lower() and "mañana" not in last.lower()
 
 
 def test_miguel_fallo_and_sin_respuesta_have_no_person_messages(conn):

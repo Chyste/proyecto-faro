@@ -1,0 +1,263 @@
+{
+  "dimensiones": [
+    {
+      "code": "aislamiento",
+      "name": "Aislamiento social"
+    },
+    {
+      "code": "funcional",
+      "name": "Deterioro funcional"
+    },
+    {
+      "code": "medicacion",
+      "name": "Medicamentos y tratamientos"
+    },
+    {
+      "code": "emocional_cognitiva",
+      "name": "Salud emocional y cognitiva"
+    },
+    {
+      "code": "seguridad",
+      "name": "Seguridad y emergencias"
+    }
+  ],
+  "indicadores": [
+    {
+      "code": "soledad_percibida",
+      "dimension_code": "aislamiento",
+      "value_type": "category",
+      "allowed_values": [
+        "no",
+        "a_veces",
+        "frecuente"
+      ],
+      "description": "Sensación de soledad que la persona declara: no se siente sola, a veces o con frecuencia. No se deduce de vivir sola. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Se ha sentido sola o solo desde ayer?",
+        "¿Ha sentido soledad desde ayer?",
+        "¿Cómo se ha sentido de compañía en las últimas 24 horas?"
+      ]
+    },
+    {
+      "code": "contacto_social_24h",
+      "dimension_code": "aislamiento",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si la persona conversó con alguien (familia, vecinos, amistades) en el período. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Conversó con alguien desde ayer?",
+        "¿Ha hablado con algún familiar o vecino desde ayer?",
+        "¿Alguien la o lo pasó a ver o llamó desde ayer?"
+      ]
+    },
+    {
+      "code": "menor_contacto_habitual",
+      "dimension_code": "aislamiento",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si la persona refiere tener menos contacto con otras personas que lo habitual para ella. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Ha tenido menos contacto con la gente que de costumbre?",
+        "¿Siente que ha hablado menos con los suyos que otras veces?"
+      ]
+    },
+    {
+      "code": "apoyo_disponible",
+      "dimension_code": "aislamiento",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si la persona declara contar con alguien que puede ayudarla si lo necesita; falso si refiere haber perdido ese apoyo. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "Si necesitara ayuda, ¿tiene alguien a quien recurrir?",
+        "¿Cuenta con alguien que la o lo apoye si hace falta?"
+      ]
+    },
+    {
+      "code": "cambio_autonomia",
+      "dimension_code": "funcional",
+      "value_type": "category",
+      "allowed_values": [
+        "sin_cambio",
+        "mejora",
+        "empeora"
+      ],
+      "description": "Cambio reportado en su autonomía para las actividades cotidianas respecto de su situación habitual: sin cambio, mejora o empeora. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Ha notado algún cambio en cómo se las arregla sola o solo en el día a día?",
+        "Comparado con lo habitual, ¿cómo ha estado para hacer sus cosas?"
+      ]
+    },
+    {
+      "code": "dificultad_puntual_reportada",
+      "dimension_code": "funcional",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si la persona refiere una dificultad puntual en una actividad cotidiana, sin que se haya confirmado un cambio en su autonomía. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Le costó algo en particular hacer sus cosas desde ayer?",
+        "¿Tuvo alguna dificultad para algo del día a día?"
+      ]
+    },
+    {
+      "code": "actividad_afectada",
+      "dimension_code": "funcional",
+      "value_type": "list",
+      "allowed_values": [
+        "desplazarse",
+        "asearse",
+        "vestirse",
+        "alimentarse",
+        "comprar",
+        "preparar_alimentos",
+        "otra"
+      ],
+      "description": "Actividades cotidianas en las que refiere dificultad; lista vacía si no menciona ninguna. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Con qué actividad tuvo dificultad?",
+        "¿Qué cosa le costó más hacer?"
+      ]
+    },
+    {
+      "code": "adherencia_reportada",
+      "dimension_code": "medicacion",
+      "value_type": "category",
+      "allowed_values": [
+        "completa",
+        "parcial",
+        "ninguna",
+        "no_aplica"
+      ],
+      "description": "Cumplimiento reportado de sus medicamentos: completa, parcial o ninguna; no_aplica si no tiene tratamiento. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Pudo tomar sus remedios como le indicaron?",
+        "¿Se acordó de tomar sus remedios desde ayer?",
+        "¿Cómo va con sus remedios, los ha tomado?"
+      ]
+    },
+    {
+      "code": "barrera_tratamiento",
+      "dimension_code": "medicacion",
+      "value_type": "list",
+      "allowed_values": [
+        "olvido",
+        "acceso",
+        "molestia_reportada",
+        "otra"
+      ],
+      "description": "Motivos que la persona da para no seguir su tratamiento (olvido, no conseguir los medicamentos, molestias, otro); lista vacía si no reporta barrera. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Hay algo que le haya impedido tomar sus remedios?",
+        "¿Qué le ha dificultado seguir con su tratamiento?"
+      ]
+    },
+    {
+      "code": "animo_reportado",
+      "dimension_code": "emocional_cognitiva",
+      "value_type": "category",
+      "allowed_values": [
+        "bien",
+        "regular",
+        "mal"
+      ],
+      "description": "Estado de ánimo que la persona declara: bien, regular o mal. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Cómo ha estado de ánimo hoy?",
+        "¿Cómo se siente de ánimo esta mañana?"
+      ]
+    },
+    {
+      "code": "tristeza_reportada",
+      "dimension_code": "emocional_cognitiva",
+      "value_type": "category",
+      "allowed_values": [
+        "no",
+        "ocasional",
+        "persistente"
+      ],
+      "description": "Tristeza que la persona declara sentir: no, ocasional o persistente. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Ha sentido tristeza desde ayer?",
+        "¿Se ha sentido triste en las últimas 24 horas?"
+      ]
+    },
+    {
+      "code": "confusion_nueva_reportada",
+      "dimension_code": "emocional_cognitiva",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero solo si la persona declara explícitamente confusión nueva; no es un diagnóstico ni se infiere de una frase confusa. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Ha sentido confusión nueva, algo que antes no le pasaba?",
+        "¿Le ha pasado de sentirse confundida o confundido de una forma distinta a lo normal?"
+      ]
+    },
+    {
+      "code": "caida_reportada",
+      "dimension_code": "seguridad",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si la persona refiere haberse caído en el período (por sí sola, sin que se infiera una lesión). Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": false,
+      "preguntas": [
+        "¿Se ha caído desde ayer?",
+        "¿Tuvo alguna caída desde la última vez que hablamos?"
+      ]
+    },
+    {
+      "code": "lesion_reportada",
+      "dimension_code": "seguridad",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si la persona refiere una lesión, golpe o dolor intenso asociado a un incidente reciente. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": true,
+      "preguntas": [
+        "¿Se lesionó o se golpeó fuerte?",
+        "¿Quedó con algún dolor o golpe por eso?"
+      ]
+    },
+    {
+      "code": "sintoma_agudo_protocolo",
+      "dimension_code": "seguridad",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero si refiere un síntoma agudo contemplado en el guion de emergencia (por ejemplo dolor de pecho, falta de aire o desmayo). Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": true,
+      "preguntas": [
+        "¿Ha tenido dolor de pecho, falta de aire o algún desmayo?",
+        "¿Sintió algo grave como falta de aire o mareo muy fuerte?"
+      ]
+    },
+    {
+      "code": "necesita_ayuda_inmediata",
+      "dimension_code": "seguridad",
+      "value_type": "bool",
+      "allowed_values": null,
+      "description": "Verdadero solo si la persona pide ayuda de forma explícita ahora o dice necesitar que alguien vaya a verla de inmediato. Período: desde la última conversación, máximo 24 horas.",
+      "is_urgent_trigger": true,
+      "preguntas": [
+        "¿Necesita ayuda inmediata en este momento?",
+        "¿Necesita que alguien vaya a verla o verlo ahora?"
+      ]
+    }
+  ],
+  "estados_del_dato": [
+    "informado",
+    "no_preguntado",
+    "no_sabe",
+    "prefiere_no_responder",
+    "no_comprendido",
+    "pendiente_confirmar"
+  ]
+}

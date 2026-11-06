@@ -166,7 +166,7 @@ CUSUM requiere una referencia y parámetros de diseño; véase [NIST](https://ww
 
 Se propone **un intento programado por persona y día: 70 intentos**, incluidos los fallidos y no respondidos. Se conserva la relación entre cada conversación, sus indicadores y sus resultados esperados.
 
-La carga SQLite actual ya contiene 70 intentos para Rosa, Luis, Carmen, Jorge y Elena, con deterioro gradual, una caída urgente y una racha sin respuesta. La tabla siguiente describe los escenarios objetivo ampliados; aún no coincide con los perfiles y guiones implementados. La carga actual no incluye indicadores extraídos ni niveles esperados.
+La carga SQLite contiene 70 intentos para Rosa, Carlos, Elena, Miguel y Teresa y anotaciones de indicadores y niveles esperados separadas de las salidas del procesamiento. Los escenarios de la tabla están implementados. Elena incluye una llamada parcial y una rechazada; Miguel, un fallo técnico y una llamada sin respuesta. Aún no se generan indicadores extraídos ni evaluaciones ejecutadas.
 
 | Perfil ficticio | Historia | Qué demuestra |
 |---|---|---|
@@ -203,7 +203,7 @@ Otro guion puede incluir: «Me caí, me lesioné y necesito ayuda ahora». Ese e
 
 Los valores esperados y la salida efectiva se mantienen separados. En modo **reproducción**, se cargan indicadores preparados y se indica que la extracción está simulada. En modo **extracción en vivo**, se procesa el texto ficticio y se compara la salida con la anotación esperada. Un cambio de modo se muestra explícitamente.
 
-Estos archivos son un contrato de implementación; este documento no afirma que ya hayan sido generados.
+Estos archivos se generan mediante `uv run python -m src.db.export --archive outputs/faro_datos_sinteticos.zip`. El paquete también incluye las bases `faro_sintetico.db` y `conversaciones.db`, SQL para reconstruirlas, catálogo, parámetros y hashes. `observaciones.jsonl` permanece vacío hasta implementar el procesamiento. La [guía del paquete](../data/synthetic/README.md) detalla el contenido.
 
 ## 8. Distribución del dashboard
 

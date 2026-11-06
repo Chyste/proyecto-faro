@@ -1,0 +1,90 @@
+{
+  "version": "faro-sintetico-v1",
+  "modo": "datos_sinteticos_con_anotaciones",
+  "fecha_inicio": "2026-10-23",
+  "fecha_fin": "2026-11-05",
+  "dias_por_persona": 14,
+  "intentos_diarios_por_persona": 1,
+  "zona_horaria": "America/Santiago",
+  "offset_fijo_simulacion": "-03:00",
+  "horarios_simulados": {
+    "mañana": "10:00",
+    "tarde": "16:00"
+  },
+  "periodo_referencia_max_horas": 24,
+  "retencion_transcripciones_dias": 30,
+  "borrado_automatico_implementado": false,
+  "reglas_demo": {
+    "estado_implementacion": "pendiente; los niveles incluidos son anotaciones",
+    "persistencia": {
+      "ventana_dias": 5,
+      "minimo_llamadas_validas_con_senal": 3,
+      "dimensiones": [
+        "aislamiento",
+        "medicacion",
+        "emocional_cognitiva"
+      ]
+    },
+    "combinacion": {
+      "minimo_dimensiones_con_senal": 2,
+      "nivel": 2
+    },
+    "empeoramiento_autonomia_explicito": {
+      "nivel": 2
+    },
+    "caida_sin_lesion_o_lesion_desconocida": {
+      "nivel": 2
+    },
+    "eventos_urgentes": {
+      "tipos": [
+        "necesita_ayuda_inmediata",
+        "caida_con_lesion",
+        "sintoma_agudo"
+      ],
+      "nivel": 3,
+      "prioridad": "antes de IA o CUSUM",
+      "cierre": "humano"
+    },
+    "intento_sin_informacion": {
+      "nivel": null,
+      "conservar_historial_previo": true
+    }
+  },
+  "niveles": [
+    {
+      "nivel": 0,
+      "color": "verde",
+      "nombre": "Seguimiento habitual"
+    },
+    {
+      "nivel": 1,
+      "color": "amarillo",
+      "nombre": "Atención preventiva"
+    },
+    {
+      "nivel": 2,
+      "color": "naranja",
+      "nombre": "Revisión prioritaria"
+    },
+    {
+      "nivel": 3,
+      "color": "rojo",
+      "nombre": "Situación urgente"
+    }
+  ],
+  "sin_evaluacion": {
+    "nivel": null,
+    "etiqueta": "sin evaluación actual"
+  },
+  "cusum": {
+    "estado": "pendiente",
+    "dias_base_propuestos": 7,
+    "k": null,
+    "h": null
+  },
+  "fuentes_contrato": [
+    "docs/MVP_PARAMETROS_Y_SIMULACION.md",
+    "src/db/catalog.py",
+    "src/db/schema.sql"
+  ]
+}
