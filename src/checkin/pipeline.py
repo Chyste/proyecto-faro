@@ -49,6 +49,8 @@ def _upsert_alert(conn, person_id, level, origin, rule_code, explanation, create
 
 def _extract_step(conn, conversation_id, mode, client) -> dict:
     """Step 3: replay (annotated values) or Jev extraction; Jev failure falls back to replay for this conversation."""
+    if mode == "dialogo":  # observations were written turn by turn by the dialogue engine
+        return {"step": "dialogo", "observation_ids": []}
     if mode == "reproduccion":
         return {"step": "replay", "observation_ids": load_replay_observations(conn, conversation_id)}
     try:
@@ -65,7 +67,7 @@ def _extract_step(conn, conversation_id, mode, client) -> dict:
 def process_conversation(conn: sqlite3.Connection, conversation_id: int, mode: str = "reproduccion",
                          client=None) -> list[dict]:
     """Process one conversation (idempotent); returns a step log. mode: 'reproduccion' | 'jev'."""
-    if mode not in ("reproduccion", "jev"):
+    if mode not in ("reproduccion", "jev", "dialogo"):
         raise ValueError(f"Unknown mode: {mode}")
     if mode == "jev" and client is None:
         raise ValueError("mode='jev' requires a client")
@@ -111,6 +113,11 @@ def process_conversation(conn: sqlite3.Connection, conversation_id: int, mode: s
                 "reasons": result.reasons})
     log.append({"step": "alerts", "alerts": alerts})
     return log
+
+
+def process_after_dialogue(conn: sqlite3.Connection, conversation_id: int) -> list[dict]:
+    """Urgent rule + rules/assessment/alerts over a conversation whose observations the dialogue already wrote."""
+    return process_conversation(conn, conversation_id, "dialogo")
 
 
 def process_all(conn: sqlite3.Connection, mode: str = "reproduccion", client=None,
