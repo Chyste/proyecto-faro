@@ -5,10 +5,8 @@ import {
   Calling02Icon,
   Home01Icon,
   ListViewIcon,
-  MapsLocation01Icon,
   Notification03Icon,
   RefreshIcon,
-  Settings02Icon,
   SidebarLeftIcon,
   SidebarRightIcon,
   UserGroupIcon,
@@ -51,13 +49,6 @@ const groups: { title: string; items: Item[] }[] = [
     items: [
       { to: '/en-vivo', label: 'Llamada en vivo', icon: Calling02Icon, badge: 'live' },
       { to: '/seguimiento', label: 'Llamadas y decisiones', icon: ListViewIcon },
-    ],
-  },
-  {
-    title: 'Gestión',
-    items: [
-      { to: '/geografico', label: 'Territorio', icon: MapsLocation01Icon },
-      { to: '/configuracion', label: 'Configuración', icon: Settings02Icon },
     ],
   },
 ];

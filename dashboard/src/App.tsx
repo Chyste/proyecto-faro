@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ActionsProvider } from './components/actions/ActionModals';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
-import GeograficoPage from './pages/Geografico';
 import BienestarPage from './pages/Bienestar';
 import AlertasPage from './pages/Alertas';
 import PersonasPage from './pages/Personas';
@@ -17,7 +16,6 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
-          <Route path="geografico" element={<GeograficoPage />} />
           <Route path="bienestar" element={<BienestarPage />} />
           <Route path="alertas" element={<AlertasPage />} />
           <Route path="alertas/:id" element={<AlertasPage />} />
