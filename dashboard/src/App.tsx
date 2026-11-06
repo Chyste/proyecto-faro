@@ -9,6 +9,7 @@ import AlertasPage from './pages/Alertas';
 import PersonasPage from './pages/Personas';
 import PersonaDetallePage from './pages/PersonaDetalle';
 import SeguimientoPage from './pages/Seguimiento';
+import EnVivo from './pages/EnVivo';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="personas" element={<PersonasPage />} />
           <Route path="personas/:id" element={<PersonaDetallePage />} />
           <Route path="seguimiento" element={<SeguimientoPage />} />
+          <Route path="en-vivo" element={<EnVivo />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

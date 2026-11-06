@@ -4,6 +4,7 @@ import { useActions } from '../actions/ActionModals';
 
 const navItems = [
   { to: '/', label: 'Hoy' },
+  { to: '/en-vivo', label: 'Llamada en vivo' },
   { to: '/alertas', label: 'Alertas' },
   { to: '/personas', label: 'Personas' },
   { to: '/seguimiento', label: 'Seguimientos' },
