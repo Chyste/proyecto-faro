@@ -23,7 +23,8 @@
 - GREEN: `uv run pytest -q` -> 23 passed (writer + parent spot check).
 - CLI: `uv run python -m src.db --db data/processed/faro.db --reset` -> 5 persons, 70 conversations, 598 messages, 17 indicators; pipeline tables empty by design.
 - Parent spot check: Carmen day 12 fall messages and Rosa late-days missed meds present.
-- Commit: see git log on feat/db-schema.
+- Commit: 5ce5ccf (feat/db-schema).
+- Review: assessed medium (slice_budget_reached); user declined this candidate. Off-path: writer self-verification + parent spot check (pytest 23 passed).
 
 ## Next step
 Pipeline: urgent rules (level 3, no LLM) -> LLM extraction -> observations -> CUSUM -> alerts.
