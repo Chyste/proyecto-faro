@@ -28,12 +28,31 @@
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
 
+  /* FARO tokens (Figma: Tokens & components) */
+  --color-ink: #222222;
+  --color-body: #3f3f3f;
+  --color-muted: #6a6a6a;
+  --color-hairline: #dddddd;
+  --color-hairline-soft: #ebebeb;
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-surface-strong: #f2f2f2;
+  --color-l0-fg: #17703f;
+  --color-l0-bg: #e8f5ee;
+  --color-l1-fg: #8a5b00;
+  --color-l1-bg: #fff4d6;
+  --color-l2-fg: #b54708;
+  --color-l2-bg: #fff0e6;
+  --color-l3-fg: #c13515;
+  --color-l3-bg: #fde8e8;
+  --shadow-card: 0 2px 12px 0 rgba(0, 0, 0, 0.08);
+
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-canvas text-ink antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }

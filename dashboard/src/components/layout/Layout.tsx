@@ -3,12 +3,11 @@ import Sidebar from './Sidebar';
 
 export default function Layout() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Sidebar />
-      <div className="pl-64 transition-all duration-300">
+      <div className="pl-[220px]">
         <Outlet />
       </div>
     </div>
   );
 }
-
