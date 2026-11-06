@@ -2,7 +2,7 @@
 from the environment / .env (python-dotenv) so adding it while the API runs works, and a missing key degrades
 gracefully (503 -> the browser falls back to speechSynthesis / Web Speech).
 
-Env: FISH_API_KEY (required for voice), FISH_VOICE_ID (optional reference_id; without it Fish picks its default voice).
+Env: FISH_API_KEY (required for voice), FISH_VOICE_ID (optional override of the default team voice DEFAULT_VOICE_ID).
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 FISH_BASE = "https://api.fish.audio"
 TTS_MODEL = "drama-3"
 STT_MODEL = "transcribe-1-pro"
+DEFAULT_VOICE_ID = "18e18acc89b94d4f9f04a4d7da7ebf7d"  # voice chosen by the team (not a secret); FISH_VOICE_ID overrides
 DIRECTION = "[tono cálido, pausado y cercano] "
 MAX_AUDIO = 10 * 1024 * 1024
 
@@ -50,8 +51,7 @@ def build_router() -> APIRouter:
     def tts(body: TtsBody, request: Request):
         key = need_key()
         payload = {"text": DIRECTION + body.texto.strip(), "format": "mp3"}
-        if os.environ.get("FISH_VOICE_ID"):
-            payload["reference_id"] = os.environ["FISH_VOICE_ID"]
+        payload["reference_id"] = os.environ.get("FISH_VOICE_ID") or DEFAULT_VOICE_ID
         try:
             with client(request) as c:
                 up = c.post("/v1/tts", json=payload, headers={"Authorization": f"Bearer {key}", "model": TTS_MODEL})

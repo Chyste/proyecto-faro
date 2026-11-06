@@ -48,7 +48,12 @@ export class ColaVoz {
   private activo = false;
   private audio: HTMLAudioElement | null = null;
   private cancelado = 0;
-  constructor(private usarFish: () => boolean, private onEstado: (hablando: boolean) => void, private onFallo: (m: string) => void) {}
+  private usarFish: () => boolean;
+  private onEstado: (hablando: boolean) => void;
+  private onFallo: (m: string) => void;
+  constructor(usarFish: () => boolean, onEstado: (hablando: boolean) => void, onFallo: (m: string) => void) {
+    this.usarFish = usarFish; this.onEstado = onEstado; this.onFallo = onFallo;
+  }
 
   decir(texto: string): void {
     this.cola.push(texto);

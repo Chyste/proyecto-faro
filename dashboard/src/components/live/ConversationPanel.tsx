@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Send } from 'lucide-react';
+import { Mic, Send, Square } from 'lucide-react';
 import { Waveform } from './viz';
 import { initials } from './liveModel';
 
@@ -8,6 +8,7 @@ export type Msg = { id: number; rol: 'asistente' | 'persona'; texto: string; acu
 interface Props {
   msgs: Msg[]; nombre: string; activa: boolean; terminada: boolean; escuchando: boolean; texto: string;
   onTexto: (t: string) => void; onEnviar: () => void; onTerminar: () => void; enviando: boolean;
+  hablando?: boolean; grabando?: boolean; transcribiendo?: boolean; onHablar?: () => void; hablarOk?: boolean;
 }
 
 export default function ConversationPanel(p: Props) {
@@ -32,7 +33,10 @@ export default function ConversationPanel(p: Props) {
             </div>
           </div>
         ))}
-        {p.escuchando && <Waveform />}
+        {p.hablando && <Waveform label="Hablando…" />}
+        {p.grabando && <Waveform label="Escuchando a la persona…" />}
+        {p.transcribiendo && <Waveform label="Transcribiendo…" />}
+        {p.escuchando && !p.hablando && !p.grabando && !p.transcribiendo && <Waveform />}
         {p.terminada && <p className="ev-empty ev-center">Llamada terminada</p>}
         <div ref={end} />
       </div>
@@ -41,6 +45,12 @@ export default function ConversationPanel(p: Props) {
           placeholder="Escriba la respuesta de la persona…" aria-label="Respuesta de la persona" />
         <button type="submit" className="ev-btn-dark" disabled={!p.activa || !p.texto.trim() || p.enviando}>
           <Send className="size-4" aria-hidden />Enviar</button>
+        {p.activa && p.hablarOk && (
+          <button type="button" className="ev-btn-hablar" aria-pressed={!!p.grabando} onClick={p.onHablar}
+            disabled={p.hablando || p.transcribiendo || p.enviando} title="Pulse para hablar y pulse de nuevo para enviar">
+            {p.grabando ? <Square className="size-4" aria-hidden /> : <Mic className="size-4" aria-hidden />}{p.grabando ? 'Detener' : 'Hablar'}
+          </button>
+        )}
         {p.activa && <button type="button" className="ev-btn-ghost" onClick={p.onTerminar}>Terminar</button>}
       </form>
     </section>

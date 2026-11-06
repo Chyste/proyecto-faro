@@ -77,7 +77,7 @@ cd dashboard && npm install && npm run dev      # http://localhost:5173
 ```
 
 - Todo el panel lee de la API: `/api/bandeja`, `/api/personas/{id}` (`?incluir_salud=1` para medicamentos), `/api/alertas`, `/api/llamadas`, `POST /api/decisiones`, `POST /api/personas/{id}/asignar|frecuencia`, y `GET /api/eventos` (SSE: `persona_actualizada`, `alerta_creada`, `decision_registrada`). «Restablecer demo» llama a `POST /api/demo/reset` (re-siembra en modo reproducción). Si tenías una BD anterior, vuelve a correr `scripts/seed_demo.sh` (el esquema cambió).
-- Voz (Fish Audio), claves solo en el servidor (`.env`, cargado en tiempo de ejecución): `FISH_API_KEY` (obligatoria para voz), `FISH_VOICE_ID` (opcional: `reference_id` de una voz; si falta, Fish usa su voz por defecto). `GET /api/voz/estado`, `POST /api/voz/tts {texto}` (modelo `drama-3`, MP3, con la dirección «[tono cálido, pausado y cercano]») y `POST /api/voz/stt` (multipart, `transcribe-1-pro`, `language=es`). Sin clave, el navegador usa `speechSynthesis` / Web Speech y, si no existen, texto.
+- Voz (Fish Audio), claves solo en el servidor (`.env`, cargado en tiempo de ejecución): `FISH_API_KEY` (obligatoria para voz), `FISH_VOICE_ID` (opcional; por defecto se usa la voz del equipo `18e18acc89b94d4f9f04a4d7da7ebf7d`). `GET /api/voz/estado`, `POST /api/voz/tts {texto}` (modelo `drama-3`, MP3, con la dirección «[tono cálido, pausado y cercano]») y `POST /api/voz/stt` (multipart, `transcribe-1-pro`, `language=es`). Sin clave, el navegador usa `speechSynthesis` / Web Speech y, si no existen, texto.
 - Bienestar y Geográfico siguen siendo «Datos agregados de demostración».
 
 ## Horarios críticos (6 nov 2026)

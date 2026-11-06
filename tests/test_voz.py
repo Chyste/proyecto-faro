@@ -71,3 +71,12 @@ def test_stt_returns_text(mk, monkeypatch):
 
 def test_stt_without_key_503(mk):
     assert mk().post("/api/voz/stt", files={"audio": ("a.webm", b"x", "audio/webm")}).status_code == 503
+
+
+def test_tts_uses_default_team_voice(mk, monkeypatch):
+    monkeypatch.setenv("FISH_API_KEY", "k")
+    seen = {}
+    c = mk(lambda req: (seen.update(j=req.read()), httpx.Response(200, content=b"x"))[1])
+    c.post("/api/voz/tts", json={"texto": "Hola"})
+    import json
+    assert json.loads(seen["j"])["reference_id"] == "18e18acc89b94d4f9f04a4d7da7ebf7d"
