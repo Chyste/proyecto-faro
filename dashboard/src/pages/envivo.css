@@ -156,7 +156,7 @@
 /* voice + ficha en vivo */
 .ev-voz { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-body); }
 .ev-voz input { accent-color: var(--color-ink); }
-.ev-btn-hablar { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--color-ink); background: var(--color-canvas); color: var(--color-ink); border-radius: 9999px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+/* legacy */ .ev-btn-hablar { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--color-ink); background: var(--color-canvas); color: var(--color-ink); border-radius: 9999px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .ev-btn-hablar[aria-pressed="true"] { background: var(--color-ink); color: var(--color-canvas); }
 .ev-btn-hablar:disabled { opacity: 0.4; cursor: not-allowed; }
 .ev-tabs { display: flex; gap: 8px; }
@@ -168,3 +168,28 @@
 .ev-ficha-ind { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0 0; font-size: 12px; color: var(--color-body); }
 .ev-ficha-ind b { font-weight: 500; text-align: right; } .ev-ficha-ind em { color: var(--color-muted); font-style: normal; }
 .ev-ficha-live b { color: var(--color-ink); font-weight: 700; }
+
+/* phone-call UI */
+.ev-call-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ev-chip-state { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; padding: 4px 11px; font-size: 12px; font-weight: 600; background: var(--color-surface-strong); color: var(--color-muted); }
+.ev-chip-state-escuchando, .ev-chip-state-hablando, .ev-chip-state-en_llamada { background: var(--color-l0-bg); color: var(--color-l0-fg); }
+.ev-chip-state-pensando, .ev-chip-state-llamando { background: var(--color-l1-bg); color: var(--color-l1-fg); }
+.ev-call-timer { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; color: var(--color-body); }
+.ev-call-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.ev-icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; }
+.ev-icon-btn[aria-pressed="true"] { background: var(--color-ink); color: var(--color-canvas); }
+.ev-stage { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 18px 16px 6px; opacity: .55; transition: opacity 300ms; }
+.ev-stage-on { opacity: 1; }
+.ev-party { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 84px; }
+.ev-party small { font-size: 11px; color: var(--color-muted); max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-avatar-stage { position: relative; z-index: 1; width: 64px; height: 64px; font-size: 18px; }
+.ev-avatar-faro { background: var(--color-ink); color: var(--color-canvas); font-size: 12px; letter-spacing: .06em; }
+.ev-ring { position: absolute; top: 0; left: 10px; width: 64px; height: 64px; border-radius: 9999px; border: 2px solid var(--color-ink); opacity: .15; will-change: transform, opacity; }
+.ev-party-talk .ev-avatar-stage { box-shadow: 0 0 0 3px var(--color-canvas), 0 0 0 5px var(--color-ink); }
+.ev-bars { flex: 1; max-width: 220px; height: 44px; display: flex; align-items: center; justify-content: center; gap: 3px; }
+.ev-bars i { width: 4px; height: 100%; border-radius: 4px; background: var(--color-ink); transform: scaleY(.12); transform-origin: center; }
+.ev-start { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 16px; }
+.ev-btn-big { padding: 16px 34px; font-size: 17px; gap: 10px; }
+.ev-caption { margin: 0 0 0 42px; font-size: 14px; font-style: italic; color: var(--color-muted); }
+.ev-hint { display: flex; align-items: center; gap: 10px; margin: 0 0 0 42px; font-size: 13px; color: var(--color-l1-fg); }
+.ev-compose-small input { padding: 7px 14px; font-size: 13px; }

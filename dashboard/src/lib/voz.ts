@@ -21,7 +21,7 @@ async function ttsFish(texto: string): Promise<Blob> {
 
 export async function sttFish(audio: Blob): Promise<string> {
   const fd = new FormData();
-  fd.append('audio', audio, audio.type.includes('ogg') ? 'voz.ogg' : 'voz.webm');
+  fd.append('audio', audio, audio.type.includes('ogg') ? 'voz.ogg' : audio.type.includes('mp4') ? 'voz.mp4' : 'voz.webm');
   const r = await fetch(`${API_BASE}/api/voz/stt`, { method: 'POST', body: fd });
   if (!r.ok) throw new Error(`stt ${r.status}`);
   return ((await r.json()) as { texto: string }).texto;
@@ -42,12 +42,27 @@ function speakBrowser(texto: string): Promise<void> {
   });
 }
 
-/** Sequential speech queue: one utterance at a time; Fish when `usarFish()` is true, else the browser voice. */
+/** RMS (0..1) of the current time-domain frame of an analyser. */
+export function rmsDe(an: AnalyserNode, buf: Float32Array<ArrayBuffer>): number {
+  an.getFloatTimeDomainData(buf);
+  let sum = 0;
+  for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+  return Math.sqrt(sum / buf.length);
+}
+
+interface Item { texto: string; blob: Promise<Blob | null> }
+
+/** Sequential speech queue. TTS for every queued utterance is fetched in parallel (prefetch) and played in order
+ *  through one <audio> element wired to an AnalyserNode, so the UI can show the assistant's real level. */
 export class ColaVoz {
-  private cola: string[] = [];
+  private cola: Item[] = [];
   private activo = false;
-  private audio: HTMLAudioElement | null = null;
+  private el: HTMLAudioElement | null = null;
+  private analizador: AnalyserNode | null = null;
+  private buf: Float32Array<ArrayBuffer> | null = null;
   private cancelado = 0;
+  private soltarActual: (() => void) | null = null;
+  private navegadorHablando = false;
   private usarFish: () => boolean;
   private onEstado: (hablando: boolean) => void;
   private onFallo: (m: string) => void;
@@ -55,19 +70,54 @@ export class ColaVoz {
     this.usarFish = usarFish; this.onEstado = onEstado; this.onFallo = onFallo;
   }
 
+  get hablando(): boolean { return this.activo; }
+  /** True while speaking with the browser voice (no real level, echo is not cancelled). */
+  get esNavegador(): boolean { return this.navegadorHablando; }
+
+  /** Route the audio element through an analyser (call once, from a user gesture). */
+  conectar(ctx: AudioContext): void {
+    if (this.analizador) return;
+    try {
+      const src = ctx.createMediaElementSource(this.elemento());
+      const an = ctx.createAnalyser();
+      an.fftSize = 1024;
+      src.connect(an); an.connect(ctx.destination);
+      this.analizador = an; this.buf = new Float32Array(new ArrayBuffer(an.fftSize * 4));
+    } catch { this.analizador = null; }
+  }
+
+  /** Output level 0..1: analyser RMS for Fish audio; a soft synthetic wobble for browser speech. */
+  nivel(): number {
+    if (!this.activo) return 0;
+    if (this.navegadorHablando) return 0.06 + 0.05 * Math.abs(Math.sin(Date.now() / 120));
+    if (this.analizador && this.buf) return rmsDe(this.analizador, this.buf);
+    return 0;
+  }
+
   decir(texto: string): void {
-    this.cola.push(texto);
+    const blob = this.usarFish()
+      ? ttsFish(texto).catch(() => { this.onFallo('Voz de Fish no disponible; se usa la voz del navegador'); return null; })
+      : Promise.resolve(null);
+    this.cola.push({ texto, blob });
     void this.bombear();
   }
 
-  detener(): void {
+  /** Stop everything. `silencioso` skips onEstado(false) (the caller handles the transition). */
+  detener(silencioso = false): void {
     this.cancelado++;
     this.cola = [];
-    this.audio?.pause();
-    this.audio = null;
+    if (this.el) { this.el.pause(); this.el.removeAttribute('src'); }
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+    this.navegadorHablando = false;
+    const soltar = this.soltarActual; this.soltarActual = null; soltar?.();
+    const estabaActivo = this.activo;
     this.activo = false;
-    this.onEstado(false);
+    if (estabaActivo && !silencioso) this.onEstado(false);
+  }
+
+  private elemento(): HTMLAudioElement {
+    if (!this.el) { this.el = new Audio(); this.el.preload = 'auto'; }
+    return this.el;
   }
 
   private async bombear(): Promise<void> {
@@ -76,12 +126,18 @@ export class ColaVoz {
     this.onEstado(true);
     const ciclo = this.cancelado;
     while (this.cola.length && ciclo === this.cancelado) {
-      const t = this.cola.shift() as string;
+      const it = this.cola.shift() as Item;
+      const blob = await it.blob;
+      if (ciclo !== this.cancelado) return;
       let ok = false;
-      if (this.usarFish()) {
-        try { await this.reproducir(await ttsFish(t), ciclo); ok = true; } catch { this.onFallo('Voz de Fish no disponible; se usa la voz del navegador'); }
+      if (blob) {
+        try { await this.reproducir(blob, ciclo); ok = true; } catch { this.onFallo('No se pudo reproducir el audio; se usa la voz del navegador'); }
       }
-      if (!ok && ciclo === this.cancelado) await speakBrowser(t);
+      if (!ok && ciclo === this.cancelado) {
+        this.navegadorHablando = true;
+        await speakBrowser(it.texto);
+        if (ciclo === this.cancelado) this.navegadorHablando = false;
+      }
     }
     if (ciclo === this.cancelado) { this.activo = false; this.onEstado(false); }
   }
@@ -89,64 +145,27 @@ export class ColaVoz {
   private reproducir(blob: Blob, ciclo: number): Promise<void> {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(blob);
-      const a = new Audio(url);
-      this.audio = a;
-      const fin = () => { URL.revokeObjectURL(url); resolve(); };
-      a.onended = fin;
-      a.onerror = () => { URL.revokeObjectURL(url); reject(new Error('audio')); };
-      if (ciclo !== this.cancelado) return fin();
-      a.play().catch((e) => { URL.revokeObjectURL(url); reject(e); });
-    });
-  }
-}
-
-/** Push-to-talk recorder (MediaRecorder). stop() resolves with the audio blob. */
-export class Grabadora {
-  private rec: MediaRecorder | null = null;
-  private trozos: Blob[] = [];
-  private stream: MediaStream | null = null;
-
-  static disponible(): boolean { return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined'; }
-
-  async iniciar(): Promise<void> {
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this.trozos = [];
-    this.rec = new MediaRecorder(this.stream);
-    this.rec.ondataavailable = (e) => { if (e.data.size) this.trozos.push(e.data); };
-    this.rec.start();
-  }
-
-  detener(): Promise<Blob> {
-    return new Promise((resolve) => {
-      const rec = this.rec;
-      if (!rec) return resolve(new Blob());
-      rec.onstop = () => {
-        this.stream?.getTracks().forEach((t) => t.stop());
-        resolve(new Blob(this.trozos, { type: rec.mimeType || 'audio/webm' }));
-      };
-      rec.stop();
+      const a = this.elemento();
+      const limpiar = () => { a.onended = null; a.onerror = null; this.soltarActual = null; URL.revokeObjectURL(url); };
+      this.soltarActual = () => { limpiar(); resolve(); };
+      a.onended = () => { limpiar(); resolve(); };
+      a.onerror = () => { limpiar(); reject(new Error('audio')); };
+      if (ciclo !== this.cancelado) { limpiar(); return resolve(); }
+      a.src = url;
+      a.play().catch((e) => { limpiar(); reject(e); });
     });
   }
 }
 
 // ---- Web Speech API recognition (fallback when Fish STT is unavailable)
-type SR = { lang: string; interimResults: boolean; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onerror: () => void; onend: () => void; start: () => void; stop: () => void };
+interface SRResultado { isFinal: boolean; 0: { transcript: string } }
+export interface SR {
+  lang: string; interimResults: boolean; continuous: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<SRResultado> }) => void) | null;
+  onerror: ((e: { error?: string }) => void) | null; onend: (() => void) | null;
+  start: () => void; stop: () => void; abort: () => void;
+}
 export function reconocimientoNavegador(): (new () => SR) | null {
   const w = window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-export function escucharNavegador(): { parar: () => void; texto: Promise<string> } | null {
-  const C = reconocimientoNavegador();
-  if (!C) return null;
-  const r = new C();
-  r.lang = 'es-CL';
-  r.interimResults = false;
-  let out = '';
-  const texto = new Promise<string>((resolve) => {
-    r.onresult = (e) => { out = Array.from(e.results).map((x) => x[0].transcript).join(' '); };
-    r.onerror = () => resolve(out);
-    r.onend = () => resolve(out);
-  });
-  r.start();
-  return { parar: () => r.stop(), texto };
 }

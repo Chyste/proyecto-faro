@@ -13,7 +13,8 @@ import {
 } from '../lib/liveApi';
 import { getPersona, type ObsApi, type PersonaDetalleApi } from '../lib/panelApi';
 import { useApi } from '../lib/useApi';
-import { ColaVoz, Grabadora, escucharNavegador, getVozEstado, reconocimientoNavegador, sttFish, type VozEstado } from '../lib/voz';
+import { getVozEstado, type VozEstado } from '../lib/voz';
+import { Llamada, type EstadoLlamada } from '../lib/llamada';
 import './envivo.css';
 
 const EMPTY_STATS: Stats = { turnos: 0, latencia_media_ms: 0, confianza_media: null, campos_reconocidos: 0, campos_pendientes: 0 };
@@ -39,23 +40,26 @@ export default function EnVivo() {
   const [enviando, setEnviando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [segundos, setSegundos] = useState(0);
-  const [vozOn, setVozOn] = useState(() => { try { return localStorage.getItem('faro-voz') !== '0'; } catch { return true; } });
   const [vozEstado, setVozEstado] = useState<VozEstado>({ tts: false, stt: false });
-  const [hablando, setHablando] = useState(false);
-  const [grabando, setGrabando] = useState(false);
-  const [transcribiendo, setTranscribiendo] = useState(false);
+  const [fase, setFase] = useState<EstadoLlamada>('inactiva');
+  const [parcial, setParcial] = useState('');
+  const [sigueAhi, setSigueAhi] = useState(false);
+  const [sinRespuesta, setSinRespuesta] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [tab, setTab] = useState<'ia' | 'ficha'>('ia');
   const [baseline, setBaseline] = useState<Record<string, ObsApi> | null>(null);
-  const grabadora = useRef(new Grabadora());
-  const navegador = useRef<ReturnType<typeof escucharNavegador>>(null);
-  const vozOnRef = useRef(vozOn);
   const vozEstadoRef = useRef(vozEstado);
   const sesionRef = useRef<string | null>(null);
   const idRef = useRef(0);
-  const cola = useRef<ColaVoz | null>(null);
-  if (cola.current === null) {
-    cola.current = new ColaVoz(() => vozEstadoRef.current.tts, setHablando, (m) => setAviso(m));
+  const llamada = useRef<Llamada | null>(null);
+  if (llamada.current === null) {
+    llamada.current = new Llamada({
+      onEstado: setFase, onParcial: setParcial, onSigueAhi: setSigueAhi, onSinRespuesta: setSinRespuesta,
+      onAviso: (m) => setAviso(m),
+      enviar: async (t) => { const sid = sesionRef.current; if (sid) await enviarRespuesta(sid, t); },
+    }, { ttsFish: () => vozEstadoRef.current.tts, sttFish: () => vozEstadoRef.current.stt });
   }
+  const getNiveles = useCallback(() => ({ mic: llamada.current?.nivelMic() ?? 0, ia: llamada.current?.nivelIa() ?? 0 }), []);
   const obsRef = useRef<Record<string, Observacion>>({});
   const nivelRef = useRef<Nivel | null>(null);
   const t0 = useRef(0);
@@ -65,10 +69,9 @@ export default function EnVivo() {
     getSalud().catch(() => setApiError(true));
     void getVozEstado().then(setVozEstado);
     getPersonasLive().then((p) => { setPersonas(p); setPersonaId(p[0]?.id ?? null); }).catch(() => setApiError(true));
-    return () => { unsub.current?.(); cola.current?.detener(); };
+    return () => { unsub.current?.(); llamada.current?.colgar(); };
   }, []);
 
-  useEffect(() => { vozOnRef.current = vozOn; if (!vozOn) cola.current?.detener(); try { localStorage.setItem('faro-voz', vozOn ? '1' : '0'); } catch { /* prefs only */ } }, [vozOn]);
   useEffect(() => { vozEstadoRef.current = vozEstado; }, [vozEstado]);
   const activa = sesion !== null && !terminada;
   useEffect(() => {
@@ -86,7 +89,7 @@ export default function EnVivo() {
   const onEvent = useCallback((e: LiveEvent) => {
     switch (e.type) {
       case 'turno_asistente':
-        if (vozOnRef.current && !e.data.sistema) cola.current?.decir(e.data.texto);
+        if (!e.data.sistema) llamada.current?.decir(e.data.texto);
         setMsgs((m) => [...m, { id: ++idRef.current, rol: 'asistente', texto: e.data.texto, acuse: e.data.acuse }]);
         break;
       case 'turno_persona':
@@ -128,14 +131,17 @@ export default function EnVivo() {
         }
         break;
       }
-      case 'urgencia': setUrgencia(e.data.cita); break;
-      case 'fin': setTerminada(true); setStats(e.data.stats); break;
+      case 'urgencia': setUrgencia(e.data.cita); llamada.current?.cerrarTrasHablar(); break;
+      case 'fin': setTerminada(true); setStats(e.data.stats); llamada.current?.cerrarTrasHablar(); break;
     }
   }, []);
 
   async function iniciar() {
     if (personaId === null) return;
-    unsub.current?.(); cola.current?.detener();
+    const call = llamada.current as Llamada;
+    void call.iniciar(); // sync part runs inside the click (audio unlock); tone + mic permission overlap the session setup
+    setMuted(false);
+    unsub.current?.();
     try {
       const f = await getPersona(personaId);
       setBaseline(Object.fromEntries(f.dimensiones.flatMap((d) => d.indicadores).map((o) => [o.indicador, o])));
@@ -148,7 +154,7 @@ export default function EnVivo() {
       sesionRef.current = r.sesion_id;
       setApiError(false); setSesion(r.sesion_id);
       unsub.current = suscribirEventos(r.sesion_id, onEvent);
-    } catch { setApiError(true); }
+    } catch { setApiError(true); call.colgar(); }
   }
 
   async function enviarTexto(t: string) {
@@ -164,36 +170,17 @@ export default function EnVivo() {
     await enviarTexto(t);
   }
 
-  const escuchando = activa && !enviando && !hablando && msgs.at(-1)?.rol === 'asistente' && !urgencia;
   const persona = useMemo(() => personas.find((p) => p.id === personaId), [personas, personaId]);
   const ficha = useApi(() => (personaId === null ? Promise.resolve(null) : getPersona(personaId)), [personaId], { personaId: personaId ?? undefined });
   const fichaData: PersonaDetalleApi | null = ficha.data;
 
-  /** Push-to-talk: Fish STT when available, else the browser's Web Speech, else the user types. */
-  async function hablar() {
-    if (!activa || enviando || hablando) return;
-    if (grabando) {
-      setGrabando(false);
-      if (navegador.current) {
-        const n = navegador.current; navegador.current = null; n.parar();
-        const t = (await n.texto).trim(); if (t) await enviarTexto(t); else setAviso('No se entendió el audio; escriba la respuesta');
-        return;
-      }
-      setTranscribiendo(true);
-      try {
-        const blob = await grabadora.current.detener();
-        const t = (await sttFish(blob)).trim();
-        if (t) await enviarTexto(t); else setAviso('No se entendió el audio; intente de nuevo o escriba');
-      } catch { setAviso('No se pudo transcribir el audio; escriba la respuesta'); } finally { setTranscribiendo(false); }
-      return;
-    }
-    cola.current?.detener();
-    if (vozEstado.stt && Grabadora.disponible()) {
-      try { await grabadora.current.iniciar(); setGrabando(true); } catch { setAviso('No hay permiso para usar el micrófono; escriba la respuesta'); }
-    } else if (reconocimientoNavegador()) {
-      navegador.current = escucharNavegador(); setGrabando(true);
-    } else setAviso('Este navegador no permite dictado; escriba la respuesta');
+  function colgar() {
+    llamada.current?.colgar();
+    setTerminada(true);
+    if (sesion) void terminarSesion(sesion).catch(() => undefined);
   }
+  function alternarMute() { const m = !muted; setMuted(m); llamada.current?.silenciar(m); }
+  function repetir() { llamada.current?.repetir(msgs.findLast((m) => m.rol === 'asistente')?.texto ?? ''); }
 
   return (
     <div className="ev-page">
@@ -205,11 +192,7 @@ export default function EnVivo() {
         <select aria-label="Persona" value={personaId ?? ''} disabled={activa} onChange={(e) => setPersonaId(Number(e.target.value))}>
           {personas.map((p) => <option key={p.id} value={p.id}>{p.preferred_name} · {p.age ?? '—'} años · {p.comuna ?? ''}</option>)}
         </select>
-        <label className="ev-voz" title={vozEstado.tts ? 'Voz de Fish Audio' : 'Sin Fish Audio: se usa la voz del navegador'}>
-          <input type="checkbox" checked={vozOn} onChange={(e) => setVozOn(e.target.checked)} /> Voz activada
-          <small className="ev-muted">{vozEstado.tts ? '(Fish Audio)' : '(voz del navegador)'}</small>
-        </label>
-        <button onClick={iniciar} disabled={personaId === null || activa} className="ev-btn-dark">Iniciar llamada</button>
+        <span className="ev-voz ev-muted">{vozEstado.tts ? 'Voz: Fish Audio' : 'Voz: navegador'} · {vozEstado.stt ? 'dictado: Fish' : 'dictado: navegador'}</span>
       </div>
 
       {apiError && <div role="alert" className="ev-notice">No se pudo conectar con la API en vivo. Inicie: uv run uvicorn src.api.app:app --port 8000</div>}
@@ -219,11 +202,11 @@ export default function EnVivo() {
       <PersonaHeader persona={persona} activa={activa} terminada={terminada} segundos={segundos} />
 
       <div className="ev-grid">
-        <ConversationPanel msgs={msgs} nombre={persona?.preferred_name ?? ''} activa={activa} terminada={terminada}
-          escuchando={escuchando} texto={texto} onTexto={setTexto} onEnviar={() => void enviar()} enviando={enviando}
-          onTerminar={() => sesion && void terminarSesion(sesion)}
-          hablando={hablando} grabando={grabando} transcribiendo={transcribiendo} onHablar={() => void hablar()}
-          hablarOk={vozEstado.stt || !!reconocimientoNavegador()} />
+        <ConversationPanel msgs={msgs} nombre={persona?.preferred_name ?? ''} estado={fase} segundos={segundos}
+          texto={texto} onTexto={setTexto} onEnviar={() => void enviar()} enviando={enviando}
+          puedeIniciar={personaId !== null && !apiError} onIniciar={() => void iniciar()} onColgar={colgar}
+          muted={muted} onMute={alternarMute} getNiveles={getNiveles}
+          parcial={parcial} sigueAhi={sigueAhi} sinRespuesta={sinRespuesta} onRepetir={repetir} />
         <div className="ev-right">
           <LevelHero nivel={nivel} motivo={motivo} cambios={cambios} pulse={nivelPulse} />
           <DimensionTiles obs={obs} niveles={niveles} flash={flash} order={order} />
