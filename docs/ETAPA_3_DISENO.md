@@ -4,6 +4,8 @@
 Hackathon IA Aplicada · Grupo 01 · 6 de noviembre de 2026  
 Estado: propuesta de diseño para construir el MVP; las funciones descritas aún no están implementadas.
 
+Definición concreta del alcance inmediato, con los cuatro niveles y cinco dimensiones indicadas por el equipo: [Parámetros del dashboard y llamadas simuladas](MVP_PARAMETROS_Y_SIMULACION.md). Ese documento precisa los campos y reglas de demostración.
+
 ## 1. Propuesta de producto y alcance
 
 **FARO es una plataforma de acompañamiento para personas mayores que permite a una institución conocer sus necesidades, realizar seguimientos por voz y coordinar una respuesta humana cuando aparece un cambio relevante.**
@@ -96,24 +98,23 @@ El panel presenta un **perfil de necesidades y prioridad de revisión**, con var
 | Señales puntuales | Un hecho que requiere revisar sin esperar una tendencia | «Solicitó ayuda durante la llamada» |
 | Calidad y actualidad | Cuánto sabemos y qué falta confirmar | «Tratamiento informado hace dos meses; actualizar» |
 
-Las dimensiones iniciales son **red social y soledad, autonomía funcional, continuidad del tratamiento, bienestar cotidiano y capacidad de contacto**. Cada una muestra estado, evidencia temporal y acción posible. Se muestra «sin información suficiente» cuando corresponda.
+Las cinco dimensiones acordadas son **aislamiento social, deterioro funcional, dificultades con medicamentos y tratamientos, salud emocional y cognitiva, y seguridad y situaciones de emergencia**. Cada una muestra estado, evidencia temporal y acción posible. La capacidad de contacto se registra como información operativa. Se muestra «sin información suficiente» cuando corresponda.
 
 ### Motor de prioridad
 
-1. Una señal explícita que requiera atención se presenta de inmediato al equipo conforme al protocolo de cobertura acordado.
+1. Una situación urgente explícita activa primero el protocolo de emergencia o asistencia correspondiente, sin esperar al análisis de IA.
 2. Las reglas configuradas detectan cambios persistentes o la combinación de señales. La salida incluye los códigos de regla y las observaciones que la originaron.
 3. Una falta de respuesta abre primero una situación de contacto: revisar horario, teléfono, accesibilidad y fallas técnicas. La persistencia puede elevar la prioridad según el contexto.
 4. Los casos se ordenan por urgencia de revisión, antigüedad y plazo pendiente. Una modificación humana requiere motivo y queda registrada.
 
-| Estado operativo | Ejemplo ilustrativo | Respuesta del equipo |
+| Nivel de atención | Condición | Respuesta del equipo |
 |---|---|---|
-| Seguimiento habitual | Información reciente sin nuevas señales | Mantener el plan acordado |
-| Revisar | Cambio respecto de su rutina o dato relevante por confirmar | Asignar revisión con plazo |
-| Prioritario | Varias señales persistentes o necesidad relevante reportada | Contactar dentro del plazo configurado |
-| Atención inmediata según protocolo | Solicitud de ayuda actual o incidente que el protocolo considere urgente | Avisar al responsable de turno y activar revisión |
-| Información insuficiente | Inicio de seguimiento, datos vencidos o respuesta ininteligible | Completar información; mostrar estado explícito |
+| 0 · Verde · Seguimiento habitual | Bienestar estable, actividades mantenidas y apoyo disponible | Continuar controles periódicos |
+| 1 · Amarillo · Atención preventiva | Señales aisladas | Realizar seguimiento y profundizar mediante preguntas |
+| 2 · Naranja · Revisión prioritaria | Varias señales, cambios persistentes o pérdida de autonomía | Enviar al equipo responsable para revisión y contacto oportuno |
+| 3 · Rojo · Situación urgente | Ayuda inmediata, caída con lesión o síntomas agudos que requieren atención | Activar el protocolo correspondiente sin esperar el análisis de IA |
 
-Los ejemplos son reglas de demostración, no umbrales clínicos. La frecuencia de contacto y los plazos se acuerdan con el equipo operativo antes del piloto. Toda derivación, aviso a un contacto o intervención requiere decisión humana.
+La información insuficiente es un estado de los datos, separado del nivel de atención; nunca se representa como verde por defecto. Las reglas detalladas del MVP son de demostración, no umbrales clínicos. La frecuencia de contacto y los plazos se acuerdan con el equipo operativo antes del piloto. El equipo humano ejecuta las intervenciones; la ruta urgente se inicia sin esperar la revisión de un modelo.
 
 ### Encaje de CUSUM
 
@@ -146,6 +147,8 @@ flowchart LR
 5. Hace una pregunta por turno, permite silencios y solicita confirmación cuando no entiende. La duración objetivo inicial es de dos a tres minutos, ajustable según preferencia.
 6. Extrae indicadores estructurados, valida su formato y marca ambigüedades. Una actualización clínica queda pendiente de verificación; una negativa a responder se respeta.
 7. Registra observaciones y genera señales explicadas. El funcionario revisa, decide la acción y deja una próxima fecha de seguimiento.
+
+La ruta de urgencia tiene prioridad sobre esa secuencia: ante un evento urgente explícito se inicia el protocolo correspondiente sin esperar extracción o análisis de IA. En la demo, el evento y la activación se identifican como simulados.
 
 ### Ejemplo con datos sintéticos
 

@@ -14,6 +14,8 @@ Detección temprana de riesgo (aislamiento, deterioro funcional, abandono de tra
 
 Diseño funcional del CRM y seguimiento por voz: [Etapa 3 · Diseño de FARO](docs/ETAPA_3_DISENO.md).
 
+Alcance inmediato de la demo: [Parámetros, cuatro niveles de atención y llamadas simuladas](docs/MVP_PARAMETROS_Y_SIMULACION.md).
+
 ```
 .
 ├── README.md                  ← este archivo

@@ -33,7 +33,7 @@ Prototipo congelado: **14:45** · Pitch: 5 min + 3 min preguntas
 ## 4. Capa A — Modelo de riesgo esperado (CASEN → Censo)
 
 ### 4.1 Qué es
-Una regresión logística estimada en CASEN 2024 que relaciona un perfil sociodemográfico con la probabilidad de **ser dependiente funcional sin cuidador**. Se usa de dos formas.
+Una regresión logística estimada en CASEN 2024 que relaciona un perfil sociodemográfico con la probabilidad de **ser dependiente funcional sin cuidador dentro del hogar**. La definición incluye a quienes tienen exclusivamente un cuidador externo. Se usa de dos formas.
 
 ```
 CASEN 2024 ──► regresión logística ──┬──► × Censo 2024 ──► Producto 1: ranking comunal
@@ -50,13 +50,13 @@ CASEN 2024 ──► regresión logística ──┬──► × Censo 2024 ─�
 
 ### 4.3 Producto 2 — Prioridad al inscribir
 - **Para quién:** la OAM, *dentro* de su comuna.
-- **Cómo:** al inscribir a una persona (con consentimiento), el monitor registra 5–6 características no sensibles (edad, vive sola, dificultad funcional autodeclarada, escolaridad, área). La regla derivada del modelo entrega prioridad **alta / media / baja**.
+- **Cómo:** al inscribir a una persona (con consentimiento), el monitor registra las características habilitadas para el modelo (edad, vive sola, dificultad funcional autodeclarada, escolaridad, área). Una eventual regla derivada del modelo entrega una prioridad de acompañamiento y se identifica aparte del nivel de atención 0–3.
 - **Qué define la prioridad:** frecuencia del check-in, frecuencia de visitas presenciales y si se sugiere un contacto de respaldo.
 - **Explicable:** se muestra qué factores suben la prioridad (coeficientes / odds ratios).
 
 ### 4.4 Especificación del modelo
 - **Población:** personas 60+ en CASEN 2024.
-- **Variable respuesta (Y):** `depen_fun = 1` y `persona_cuidada ∈ {0, 2}` (dependiente sin cuidador). 2.136 casos, 3,8% ponderado.
+- **Variable respuesta (Y):** `depen_fun = 1` y `persona_cuidada ∈ {0, 2}` (dependiente sin cuidador dentro del hogar). 2.136 casos, 3,8% ponderado.
 - **Covariables (X), presentes en CASEN y Censo:** tramo de edad, sexo, vive solo, discapacidad (Washington Group), escolaridad, área urbano/rural. Opcionales: estado civil, pueblo indígena, nacido en el extranjero.
 - **Peso:** `expr` (factor de expansión regional).
 - **Validación:** AUC, calibración por deciles; comparar tasa predicha vs. observada en las 142 comunas CASEN con ≥100 personas 60+.
@@ -73,20 +73,20 @@ CASEN 2024 ──► regresión logística ──┬──► × Censo 2024 ─�
 ## 5. Capa C — Check-in diario y detección de cambio
 
 ### 5.1 Flujo de la persona (ejemplo)
+**Alcance de la hackatón:** reproducir llamadas ficticias y sus indicadores sobre perfiles sintéticos, sin telefonía real. El ejemplo describe la experiencia que se simula.
+
 > Doña Rosa, 79 años, vive sola. Un monitor la inscribe y ella consiente.
 > Cada día recibe una llamada o audio: *"¿Cómo amaneció? ¿Tomó sus remedios? ¿Ha conversado con alguien?"*
 > Responde hablando, con sus palabras.
 
 ### 5.2 Pipeline
-1. **IA generativa (voz → indicadores):** transcribe y extrae un JSON estructurado:
-   `animo` (bajo/medio/alto), `remedios` (sí/no), `contacto_social` (sí/no), `salio_casa` (sí/no), `dolor_o_caida` (sí/no), `respondio` (sí/no).
-   No se almacena el audio, solo los indicadores.
-2. **Estadística (CUSUM por persona):** serie temporal de cada indicador comparada contra la **línea base propia** (primeros N días). Señal cuando la suma acumulada supera el umbral `h`. No responder cuenta como señal.
+1. **Conversación → indicadores:** se extraen los campos de las cinco dimensiones definidos en [el contrato del MVP](MVP_PARAMETROS_Y_SIMULACION.md). La demo identifica si la extracción es en vivo sobre texto ficticio o si se reproducen indicadores preparados. Los datos desconocidos se conservan como tales. Para una operación real, el diseño conserva indicadores y no audio ni transcripciones completas.
+2. **Reglas y evolución:** se calculan los niveles 0–3 con motivos. CUSUM es un análisis complementario frente a una línea base propia cuando exista referencia suficiente. Las llamadas sin respuesta se registran como situaciones de contacto, sin inventar indicadores de salud. Un evento urgente del guion activa primero la ruta de protocolo, sin esperar IA o estadística.
 3. **Alerta explicada:** texto legible, p. ej. *"3 días sin remedios, ánimo a la baja, sin salir desde el lunes"*.
 
 ### 5.3 Por qué CUSUM y no un modelo predictivo
 - No existen datos públicos longitudinales etiquetados (eventos de riesgo en el tiempo) para entrenar un predictor individual.
-- Cada persona es su propio control: funciona desde el día uno y respeta la variabilidad individual.
+- Cada persona es su propio control una vez que existe una referencia suficiente. Durante el inicio se utilizan reglas explícitas; una urgencia no espera a completar la línea base.
 - Parámetros (`k`, `h`) interpretables y ajustables según la prioridad de la capa A (prioridad alta → umbral más sensible).
 
 ---
@@ -102,15 +102,19 @@ Señal CUSUM ──► Panel OAM ──► FUNCIONARIO/A REVISA (decisión human
                             a su contacto autorizado  domiciliaria, junta de vecinos
 ```
 
-| Semáforo | Condición | Acción sugerida |
+| Nivel | Condición | Acción |
 |---|---|---|
-| Verde | Sin desviación | Ninguna |
-| Amarillo | Cambio leve en un indicador | Llamada de seguimiento en 48 h |
-| Rojo | Cambio sostenido, varios indicadores o sin respuesta 2+ días | Contacto el mismo día |
+| 0 · Verde · Seguimiento habitual | Bienestar estable, actividades mantenidas y apoyo disponible | Continuar controles periódicos |
+| 1 · Amarillo · Atención preventiva | Señales aisladas | Seguimiento y preguntas para profundizar |
+| 2 · Naranja · Revisión prioritaria | Varias señales, cambios persistentes o pérdida de autonomía | Revisión del equipo y contacto oportuno |
+| 3 · Rojo · Situación urgente | Necesidad de ayuda inmediata, caída con lesión o síntomas agudos que requieren atención | Activar el protocolo correspondiente, sin esperar el análisis de IA |
 
-- La IA **nunca** actúa sola: toda acción la decide un funcionario.
+- La IA no decide intervenciones de forma autónoma. El equipo ejecuta el protocolo urgente sin esperar su análisis.
+- La información insuficiente se muestra aparte y no equivale a verde. La falta de respuesta se gestiona como situación de contacto, sin presumir una emergencia confirmada.
 - La persona elige su contacto de confianza y puede salirse en cualquier momento.
 - El funcionario marca cada alerta como *útil / falsa alarma* → sirve para ajustar umbrales.
+
+Campos, reglas de demostración y escenarios sintéticos: [Definición del MVP](MVP_PARAMETROS_Y_SIMULACION.md).
 
 ---
 
@@ -119,7 +123,7 @@ Señal CUSUM ──► Panel OAM ──► FUNCIONARIO/A REVISA (decisión human
 | Restricción del desafío | Medida |
 |---|---|
 | Consentimiento informado | Inscripción presencial y voluntaria con monitor; retiro en cualquier momento |
-| Minimización de datos de salud | Solo 6 indicadores diarios; sin audios ni diagnósticos almacenados |
+| Minimización de datos de salud | Campos definidos por propósito en el MVP; datos ficticios en la demo. En operación real, indicadores y acceso restringido; sin grabaciones ni diagnósticos inferidos |
 | No vigilancia invasiva | Sin cámaras, sensores ni GPS; solo lo que la persona quiere contar. Capa A no identifica personas |
 | Decisión humana final | Toda alerta pasa por un funcionario antes de cualquier acción |
 | Sesgos | Calibración del modelo A por sexo, área y pueblo indígena; en C cada persona es su propio control |
@@ -148,8 +152,8 @@ Señal CUSUM ──► Panel OAM ──► FUNCIONARIO/A REVISA (decisión human
 | T2 | Estimar regresión logística + validación + odds ratios | A | Estadístico | ⬜ |
 | T3 | Agregar Censo 60+ por comuna y aplicar modelo → ranking | A | Estadístico | ⬜ |
 | T4 | Regla de prioridad al inscribir (alta/media/baja) | A | Estadístico | ⬜ |
-| T5 | Generador de check-ins sintéticos (5 personas, 1 que se deteriora) | C | Estadístico | ⬜ |
-| T6 | Motor CUSUM + semáforo + alerta explicada | C | Estadístico | ⬜ |
+| T5 | Check-ins sintéticos (5 personas, 14 días, cuatro niveles y faltantes) | C | Estadístico | ⬜ |
+| T6 | Reglas de niveles 0–3 y alerta explicada; CUSUM complementario con referencia | C | Estadístico | ⬜ |
 | T7 | Extracción voz/texto → JSON de indicadores con LLM | C | Técnico | ⬜ |
 | T8 | Panel OAM (semáforo, alertas, botón revisar/derivar, ranking) | A+C | Técnico | ⬜ |
 | T9 | Preguntas del check-in y protocolo de la OAM | Operación | Social / salud | ⬜ |
@@ -164,7 +168,7 @@ Señal CUSUM ──► Panel OAM ──► FUNCIONARIO/A REVISA (decisión human
 2. **Dónde (45 s):** ranking comunal (Producto 1).
 3. **Inscripción (30 s):** el monitor inscribe a Rosa → prioridad (Producto 2).
 4. **Check-in (1 min):** audio de Rosa → indicadores extraídos en vivo.
-5. **Alerta (1 min):** series de días → el CUSUM detecta el cambio → alerta roja explicada en el panel.
+5. **Alerta (1 min):** series de días → cambios persistentes → nivel naranja explicado; evento urgente independiente → rojo y protocolo simulado sin esperar IA.
 6. **Decisión humana (30 s):** el funcionario revisa y deriva al CESFAM.
 7. **Ética e impacto (30 s):** consentimiento, minimización, escalamiento a otras comunas.
 
@@ -173,8 +177,8 @@ Señal CUSUM ──► Panel OAM ──► FUNCIONARIO/A REVISA (decisión human
 | Pregunta | Respuesta corta |
 |---|---|
 | ¿Por qué necesita IA? | Entender respuestas habladas libres de personas con baja alfabetización digital; sin IA requiere formularios o un operador por llamada |
-| ¿Con qué datos validaron? | Modelo A: CASEN real, AUC y calibración contra comunas observadas. Capa C: demo con sintéticos; en un piloto, umbrales ajustados con la retroalimentación del funcionario |
+| ¿Con qué datos validaron? | Modelo A: se evaluará con CASEN, AUC y calibración; se reportarán solo resultados calculados. Capa C: los sintéticos comprueban el flujo de demostración; los umbrales requieren evaluación en un piloto |
 | ¿No es vigilancia? | Solo lo que la persona quiere contar, con consentimiento y retiro libre; sin sensores; la capa A no identifica a nadie |
 | ¿Y si hay falsa alarma? | Siempre la revisa un humano; las falsas alarmas cuestan una llamada, no una intervención |
-| ¿Qué pasa si no contesta? | Es una señal en sí misma: escala a amarillo o rojo según los días |
+| ¿Qué pasa si no contesta? | Se abre una situación de contacto para revisar horario, teléfono, accesibilidad y contexto. No se inventan datos de salud ni se confirma una emergencia solo por falta de respuesta |
 | ¿Mal uso? | Un municipio podría usar el puntaje para negar beneficios → el puntaje solo define intensidad de acompañamiento, nunca elegibilidad |
