@@ -1,6 +1,7 @@
 """Immutable catalog of dimensions and indicators (fed later to the LLM prompt)."""
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 
@@ -18,6 +19,7 @@ class Indicator:
     value_type: str
     description: str
     is_urgent_trigger: bool = False
+    allowed_values: tuple[str, ...] | None = None
 
 
 DIMENSIONS: tuple[Dimension, ...] = (
@@ -28,49 +30,47 @@ DIMENSIONS: tuple[Dimension, ...] = (
     Dimension("seguridad", "Seguridad y emergencias"),
 )
 
-_S = "score_0_2"
-_B = "bool"
+_P = " Período: desde la última conversación, máximo 24 horas."
 
 
-def _ind(code, dim, vtype, desc, urgent=False):
-    return Indicator(code, dim, vtype, desc, urgent)
+def _ind(code, dim, vtype, allowed, desc, urgent=False):
+    return Indicator(code, dim, vtype, desc + _P, urgent, tuple(allowed) if allowed else None)
 
 
 INDICATORS: tuple[Indicator, ...] = (
-    _ind("contacto_social", "aislamiento", _S,
-         "0 bien, 1 regular, 2 mal: frecuencia de contacto con otras personas (familia, vecinos, amistades) en los últimos días; 0 = conversó con alguien hoy o ayer, 1 = contacto escaso, 2 = no ha hablado con nadie en varios días."),
-    _ind("salio_casa", "aislamiento", _S,
-         "0 bien, 1 regular, 2 mal: salidas del hogar; 0 = salió en los últimos días, 1 = salió solo una vez en la semana, 2 = no sale de la casa."),
-    _ind("soledad_percibida", "aislamiento", _S,
-         "0 bien, 1 regular, 2 mal: sensación subjetiva de soledad; 0 = no se siente sola/o, 1 = a veces, 2 = se siente sola/o la mayor parte del tiempo."),
-    _ind("dificultad_avd", "funcional", _S,
-         "0 bien, 1 regular, 2 mal: dificultad para actividades básicas de la vida diaria (vestirse, bañarse, cocinar, asearse); 0 = sin dificultad, 1 = dificultad ocasional, 2 = necesita ayuda o no puede hacerlas."),
-    _ind("alimentacion", "funcional", _S,
-         "0 bien, 1 regular, 2 mal: alimentación; 0 = come normalmente, 1 = come menos o saltea comidas, 2 = casi no come."),
-    _ind("movilidad", "funcional", _S,
-         "0 bien, 1 regular, 2 mal: capacidad de desplazarse dentro y fuera de la casa; 0 = se mueve sin problemas, 1 = con dificultad o apoyo, 2 = casi no puede desplazarse."),
-    _ind("adherencia", "medicacion", _S,
-         "0 bien, 1 regular, 2 mal: cumplimiento de medicamentos indicados; 0 = los toma todos como corresponde, 1 = olvida algunas dosis, 2 = dejó de tomarlos."),
-    _ind("acceso_remedios", "medicacion", _S,
-         "0 bien, 1 regular, 2 mal: disponibilidad de medicamentos; 0 = tiene todos, 1 = le quedan pocos, 2 = se le acabaron o no puede conseguirlos."),
-    _ind("motivo_no_adherencia", "medicacion", "text",
-         "Motivo textual, con palabras de la persona, por el cual no toma sus medicamentos (olvido, sin stock, efectos adversos, costo). Vacío si no aplica."),
-    _ind("animo", "emocional_cognitiva", _S,
-         "0 bien, 1 regular, 2 mal: estado de ánimo; 0 = contenta/o o tranquila/o, 1 = decaída/o o desanimada/o a ratos, 2 = muy triste, apagada/o o sin ganas de nada."),
-    _ind("sueno", "emocional_cognitiva", _S,
-         "0 bien, 1 regular, 2 mal: calidad del sueño; 0 = duerme bien, 1 = duerme irregular o se despierta, 2 = casi no duerme."),
-    _ind("olvidos_desorientacion", "emocional_cognitiva", _S,
-         "0 bien, 1 regular, 2 mal: olvidos o desorientación; 0 = sin olvidos relevantes, 1 = olvidos frecuentes de cosas cotidianas, 2 = se pierde, no reconoce lugares o fechas, confusión."),
-    _ind("caida", "seguridad", _B,
-         "Verdadero si la persona refiere haberse caído recientemente o estar en el suelo sin poder levantarse.", True),
-    _ind("lesion", "seguridad", _B,
-         "Verdadero si la persona refiere una lesión o golpe reciente (por ejemplo dolor intenso de cadera, herida, fractura).", True),
-    _ind("sintoma_agudo", "seguridad", _B,
-         "Verdadero si refiere un síntoma agudo de alarma (dolor de pecho, falta de aire, mareo intenso, desmayo, confusión repentina).", True),
-    _ind("solicita_ayuda", "seguridad", _B,
-         "Verdadero si la persona pide ayuda de forma explícita o dice necesitar que alguien vaya a verla.", True),
-    _ind("desesperanza", "seguridad", _B,
-         "Verdadero si expresa desesperanza o ideas de no querer seguir viviendo, o de ser una carga.", True),
+    _ind("soledad_percibida", "aislamiento", "category", ("no", "a_veces", "frecuente"),
+         "Sensación de soledad que la persona declara: no se siente sola, a veces o con frecuencia. No se deduce de vivir sola."),
+    _ind("contacto_social_24h", "aislamiento", "bool", None,
+         "Verdadero si la persona conversó con alguien (familia, vecinos, amistades) en el período."),
+    _ind("menor_contacto_habitual", "aislamiento", "bool", None,
+         "Verdadero si la persona refiere tener menos contacto con otras personas que lo habitual para ella."),
+    _ind("apoyo_disponible", "aislamiento", "bool", None,
+         "Verdadero si la persona declara contar con alguien que puede ayudarla si lo necesita; falso si refiere haber perdido ese apoyo."),
+    _ind("cambio_autonomia", "funcional", "category", ("sin_cambio", "mejora", "empeora"),
+         "Cambio reportado en su autonomía para las actividades cotidianas respecto de su situación habitual: sin cambio, mejora o empeora."),
+    _ind("dificultad_puntual_reportada", "funcional", "bool", None,
+         "Verdadero si la persona refiere una dificultad puntual en una actividad cotidiana, sin que se haya confirmado un cambio en su autonomía."),
+    _ind("actividad_afectada", "funcional", "list",
+         ("desplazarse", "asearse", "vestirse", "alimentarse", "comprar", "preparar_alimentos", "otra"),
+         "Actividades cotidianas en las que refiere dificultad; lista vacía si no menciona ninguna."),
+    _ind("adherencia_reportada", "medicacion", "category", ("completa", "parcial", "ninguna", "no_aplica"),
+         "Cumplimiento reportado de sus medicamentos: completa, parcial o ninguna; no_aplica si no tiene tratamiento."),
+    _ind("barrera_tratamiento", "medicacion", "list", ("olvido", "acceso", "molestia_reportada", "otra"),
+         "Motivos que la persona da para no seguir su tratamiento (olvido, no conseguir los medicamentos, molestias, otro); lista vacía si no reporta barrera."),
+    _ind("animo_reportado", "emocional_cognitiva", "category", ("bien", "regular", "mal"),
+         "Estado de ánimo que la persona declara: bien, regular o mal."),
+    _ind("tristeza_reportada", "emocional_cognitiva", "category", ("no", "ocasional", "persistente"),
+         "Tristeza que la persona declara sentir: no, ocasional o persistente."),
+    _ind("confusion_nueva_reportada", "emocional_cognitiva", "bool", None,
+         "Verdadero solo si la persona declara explícitamente confusión nueva; no es un diagnóstico ni se infiere de una frase confusa."),
+    _ind("caida_reportada", "seguridad", "bool", None,
+         "Verdadero si la persona refiere haberse caído en el período (por sí sola, sin que se infiera una lesión)."),
+    _ind("lesion_reportada", "seguridad", "bool", None,
+         "Verdadero si la persona refiere una lesión, golpe o dolor intenso asociado a un incidente reciente.", True),
+    _ind("sintoma_agudo_protocolo", "seguridad", "bool", None,
+         "Verdadero si refiere un síntoma agudo contemplado en el guion de emergencia (por ejemplo dolor de pecho, falta de aire o desmayo).", True),
+    _ind("necesita_ayuda_inmediata", "seguridad", "bool", None,
+         "Verdadero solo si la persona pide ayuda de forma explícita ahora o dice necesitar que alguien vaya a verla de inmediato.", True),
 )
 
 
@@ -81,8 +81,11 @@ def seed_catalog(conn: sqlite3.Connection) -> None:
         [(d.code, d.name) for d in DIMENSIONS],
     )
     conn.executemany(
-        "INSERT OR IGNORE INTO indicator (code, dimension_code, value_type, description, is_urgent_trigger)"
-        " VALUES (?, ?, ?, ?, ?)",
-        [(i.code, i.dimension_code, i.value_type, i.description, int(i.is_urgent_trigger)) for i in INDICATORS],
+        "INSERT OR IGNORE INTO indicator"
+        " (code, dimension_code, value_type, allowed_values, description, is_urgent_trigger)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        [(i.code, i.dimension_code, i.value_type,
+          json.dumps(list(i.allowed_values)) if i.allowed_values else None,
+          i.description, int(i.is_urgent_trigger)) for i in INDICATORS],
     )
     conn.commit()

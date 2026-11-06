@@ -26,30 +26,35 @@ uv run python -m src.db --db data/processed/faro.db --reset
 
 | Área | Tablas | Uso |
 |---|---|---|
-| Catálogo | `dimension`, `indicator` | Cinco dimensiones y 17 indicadores; tipo y marca de posible urgencia |
-| Personas y equipo | `person`, `staff_user` | Perfil operativo, responsable y marca de dato sintético |
+| Catálogo | `dimension`, `indicator` | Cinco dimensiones y 16 indicadores del contrato (§4); tipo `bool`, `category` o `list`, valores permitidos y marca de posible urgencia |
+| Personas y equipo | `person`, `staff_user`, `person_medication` | Ficha ampliada (edad, sexo del modelo, área, escolaridad, WG, vive sola, autonomía y red de apoyo base, tratamiento, horario, intereses); medicamentos declarados en un módulo restringido |
 | Identidad y autorización | `person_identity`, `trusted_contact`, `consent_record` | Identidad separada, contacto y consentimiento ficticios |
-| Conversaciones | `conversation`, `message` | Intentos por persona y mensajes ordenados por turno |
-| Procesamiento | `extraction`, `observation`, `cusum_state` | Salida del extractor, evidencia y estado del detector; inicialmente vacíos |
-| Seguimiento | `alert`, `alert_evidence`, `intervention` | Alertas, observaciones que las respaldan y acciones humanas; inicialmente vacíos |
+| Conversaciones | `conversation`, `message` | Intentos (`completada`, `parcial`, `sin_respuesta`, `rechazada`, `fallo_tecnico`), escenario, evento urgente del guion y mensajes por turno |
+| Procesamiento | `extraction`, `observation`, `cusum_state`, `assessment` | Salida del extractor, observaciones con estado del dato, estado del detector y niveles evaluados; inicialmente vacíos |
+| Seguimiento | `alert`, `alert_evidence`, `intervention` | Alertas, evidencia y acciones humanas; inicialmente vacíos |
+| Anotaciones | `scenario_expectation` | Valores y niveles esperados por conversación, separados de las salidas efectivas |
 
-Las conexiones abiertas mediante `src.db.connection.connect` habilitan claves foráneas. El esquema aplica restricciones a estados, roles, fuentes y niveles de alerta.
+Las conexiones abiertas mediante `src.db.connection.connect` habilitan claves foráneas. El esquema aplica restricciones a tipos de indicador, estados del dato, fuentes (`ia`, `regla`, `funcionario`, `reproduccion`), estados de conversación, niveles y eventos urgentes (un tipo de evento exige su frase respaldo).
+
+Codificación de `observation`: booleanos en `value_num` (0/1), categorías en `value_text` y listas como arreglo JSON en `value_text`. Un estado distinto de `informado` (`no_preguntado`, `no_sabe`, `prefiere_no_responder`, `no_comprendido`, `pendiente_confirmar`) exige valor nulo.
 
 La separación de identidad es estructural: la autorización por rol y el borrado programado de transcripciones siguen pendientes. `transcript_purge_at` almacena una fecha, pero no ejecuta la eliminación.
 
 ## Escenarios cargados
 
-La carga incluye dos funcionarios, cinco contactos, cinco consentimientos y 14 intentos diarios por persona: 70 conversaciones y 598 mensajes con la fecha inicial predeterminada.
+La carga incluye dos funcionarios, cinco contactos, cinco consentimientos, seis medicamentos declarados y 14 intentos diarios por persona: 70 conversaciones con la fecha inicial predeterminada. Cada conversación respondida identifica al asistente automático, confirma al interlocutor y pregunta por códigos de indicador del catálogo.
 
-| Persona ficticia | Escenario implementado |
-|---|---|
-| Rosa | Deterioro gradual desde el día 9, menor contacto y problemas de medicamentos |
-| Luis | Conversaciones estables |
-| Carmen | Caída con dolor y petición de ayuda el día 12; apoyo de su nieta después |
-| Jorge | Mal sueño y cansancio puntuales el día 6 |
-| Elena | Cuatro intentos sin respuesta, desde el día 11, sin respuestas de salud inventadas |
+| Persona ficticia | Escenario | Niveles esperados |
+|---|---|---|
+| Rosa | Días 1–7 estables; 8–11 menor contacto, soledad y barrera de acceso a medicamentos; 12 aún con señales (la acción se registra en vivo en la demo); 13–14 mejora | 0, luego 1 y 2, después 1 y 0 |
+| Carlos | Vive solo, se siente acompañado y mantiene actividades | 0 todos los días |
+| Elena | Sin tratamiento (adherencia `no_aplica`); tristeza ocasional el día 6 | 0 y 1 el día 6 |
+| Miguel | Confusión nueva los días 5, 7 y 8; fallo técnico el día 10 y sin respuesta el 11 | 1 y 2; sin evaluar (`NULL`) en los intentos fallidos |
+| Teresa | Empeoramiento de autonomía los días 6–9; caída con lesión y petición de ayuda el día 11; recuperación con apoyo familiar | 2, luego 3 hasta la resolución humana |
 
-Los textos describen los eventos, pero todavía no generan observaciones ni alertas automáticamente. `is_urgent_trigger` identifica indicadores candidatos: no sustituye las condiciones del protocolo ni activa por sí solo un nivel 3.
+`scenario_expectation` tiene una fila por conversación con `indicator_code` nulo (nivel esperado; `NULL` significa sin evaluar) y una fila por indicador preguntado (`expected_value` como texto; si la respuesta fue nula, el motivo queda en `note`). Hay respuestas `no_sabe` y `prefiere_no_responder` anotadas. Los niveles de Rosa de los días 13–14 siguen la narrativa de la demo, no una ventana estricta de cinco días.
+
+La carga no genera observaciones, evaluaciones ni alertas. `is_urgent_trigger` identifica indicadores candidatos (`lesion_reportada`, `sintoma_agudo_protocolo`, `necesita_ayuda_inmediata`): no activa por sí solo un nivel 3. La caída sin lesión corresponde a nivel 2 según el contrato.
 
 ## Consultar desde Python
 
@@ -71,10 +76,10 @@ finally:
     conn.close()
 ```
 
-`person_current_level` devuelve el máximo nivel de las alertas abiertas o en revisión de cada persona; devuelve `0` cuando no existen. Ese cero significa ausencia de alertas activas en la base y **no acredita una evaluación de estabilidad**. El dashboard debe distinguirlo de «sin evaluación actual», como establece el alcance del MVP.
+`person_current_level` devuelve `assessed_level` y `assessed_at` (última evaluación), `open_alert_level` (máximo de alertas abiertas o en revisión) y `level`. Un `level` nulo significa **sin evaluación actual**, nunca verde. Regla: una alerta abierta de nivel 3 prevalece (3); si no, rige el nivel de la última evaluación; si no existe, el de las alertas abiertas, que puede ser nulo. Las alertas cerradas se ignoran. Una evaluación con nivel nulo registra que no hubo información suficiente.
 
 ## Relación con el diseño del dashboard
 
-[Parámetros y simulación](MVP_PARAMETROS_Y_SIMULACION.md) define el contrato objetivo. La base actual implementa un subconjunto previo: los nombres de perfiles y algunos códigos de indicadores difieren, los indicadores numéricos usan `score_0_2` y el fallo técnico se almacena como `fallida`. No se deben convertir todos los campos propuestos a estos códigos sin revisar su significado.
+[Parámetros y simulación](MVP_PARAMETROS_Y_SIMULACION.md) define el contrato; el catálogo, la ficha y las cinco personas coinciden con él.
 
-Quedan pendientes los campos ampliados de la ficha, los eventos urgentes estructurados del guion, la reproducción, la extracción, las reglas de nivel, CUSUM y el dashboard. Los archivos JSON/JSONL propuestos en ese documento tampoco se generan con este comando; las conversaciones actuales se guardan en SQLite.
+Pendientes: extracción de indicadores, motor de reglas y escritura de `assessment`, detector de palabras de urgencia, CUSUM, modo de reproducción (carga de observaciones con fuente `reproduccion`), dashboard y control de acceso por rol. Los archivos JSON/JSONL propuestos en el contrato no se generan; las conversaciones y anotaciones se guardan en SQLite.
