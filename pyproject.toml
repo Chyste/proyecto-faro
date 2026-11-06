@@ -9,3 +9,12 @@ dependencies = [
     "pyarrow>=26.0.1",
     "pyreadr>=0.5.9",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
